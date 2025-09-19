@@ -45,6 +45,7 @@ export default function AskScreen() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [locationError, setLocationError] = useState(null);
   
   // Form validation
   const [errors, setErrors] = useState({
@@ -110,21 +111,41 @@ export default function AskScreen() {
     }
   };
 
-  const getCurrentLocation = async () => {
+    const getCurrentLocation = async () => {
     setGettingLocation(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+    setLocationError(null);
 
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission required",
-          "Location permission is needed to get your location.",
-        );
-        setGettingLocation(false);
+    try {
+      if (
+        Platform.OS === "web" &&
+        typeof window !== "undefined" &&
+        window.location.protocol !== "https:" &&
+        window.location.hostname !== "localhost"
+      ) {
+        const message =
+          "Browsers require HTTPS to access location. Switch to https://localhost or enter the location manually.";
+        setLocationError(message);
+        Alert.alert("Location Unavailable", message);
         return;
       }
 
-      const locationData = await Location.getCurrentPositionAsync({});
+      const { status } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+        const message =
+          Platform.OS === "web"
+            ? "Allow location access in your browser settings or enter the address manually."
+            : "Location permission is needed to get your location.";
+        setLocationError(message);
+        Alert.alert("Permission required", message);
+        return;
+      }
+
+      const locationData = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 15000,
+        maximumAge: 60000,
+      });
       const { latitude, longitude } = locationData.coords;
 
       const newLocation = { latitude, longitude };
@@ -138,12 +159,10 @@ export default function AskScreen() {
       };
       setMapRegion(newRegion);
 
-      // Animate map to new location
       if (mapRef.current) {
         mapRef.current.animateToRegion(newRegion, 1000);
       }
 
-      // Reverse geocode to get address
       try {
         const addresses = await Location.reverseGeocodeAsync({
           latitude,
@@ -161,8 +180,8 @@ export default function AskScreen() {
             address: formattedLocation,
           });
         }
-      } catch (error) {
-        debugError("Error reverse geocoding:", error);
+      } catch (reverseError) {
+        debugError("Error reverse geocoding:", reverseError);
         setLocationAddress("Current Location");
         setSelectedLocation({
           latitude,
@@ -172,16 +191,27 @@ export default function AskScreen() {
       }
     } catch (error) {
       debugError("Error getting location:", error);
-      Alert.alert(
-        "Error",
-        "Could not get your current location. Please try again.",
-      );
+      let message = "Could not get your current location. Please try again.";
+      if (error?.code === 1) {
+        message = "Location permission was denied. Allow access in your device or browser settings, or set the marker manually.";
+      } else if (error?.code === 2) {
+        message = "We could not determine your position. Move to an open area or adjust your GPS settings.";
+      } else if (error?.code === 3) {
+        message = "Location request timed out. Please try again.";
+      } else if (Platform.OS === "web" && typeof error?.message === "string" && error.message.toLowerCase().includes("secure")) {
+        message = "The browser blocked location on this connection. Use https:// or drag the map pin manually.";
+      }
+      setLocationError(message);
+      Alert.alert("Error", message);
+    } finally {
+      setGettingLocation(false);
     }
-    setGettingLocation(false);
   };
+
 
   const handleMapPress = async (event) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
+    setLocationError(null);
 
     setCurrentLocation({ latitude, longitude });
 
@@ -751,7 +781,7 @@ export default function AskScreen() {
                               marginBottom: 4,
                             }}
                           >
-                            • Your question will be posted at this location
+                            ? Your question will be posted at this location
                           </Text>
                           <Text
                             style={{
@@ -761,7 +791,7 @@ export default function AskScreen() {
                               marginBottom: 4,
                             }}
                           >
-                            • Someone nearby (an Echo) will answer with photos
+                            ? Someone nearby (an Echo) will answer with photos
                           </Text>
                           <Text
                             style={{
@@ -770,7 +800,7 @@ export default function AskScreen() {
                               lineHeight: 20,
                             }}
                           >
-                            • You'll get privacy-protected visual proof
+                            ? You'll get privacy-protected visual proof
                           </Text>
                         </View>
                       </View>
@@ -804,3 +834,8 @@ export default function AskScreen() {
     </View>
   );
 }
+
+
+
+
+

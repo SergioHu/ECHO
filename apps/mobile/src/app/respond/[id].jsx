@@ -46,6 +46,7 @@ export default function RespondScreen() {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [distance, setDistance] = useState(null);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState(null);
 
   // Mock question data - in real app, fetch based on id
   const question = {
@@ -66,14 +67,14 @@ export default function RespondScreen() {
   // Calculate distance between two coordinates in meters
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371e3; // Earth's radius in meters
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const ?1 = (lat1 * Math.PI) / 180;
+    const ?2 = (lat2 * Math.PI) / 180;
+    const ?? = ((lat2 - lat1) * Math.PI) / 180;
+    const ?? = ((lon2 - lon1) * Math.PI) / 180;
 
     const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      Math.sin(?? / 2) * Math.sin(?? / 2) +
+      Math.cos(?1) * Math.cos(?2) * Math.sin(?? / 2) * Math.sin(?? / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
@@ -83,16 +84,19 @@ export default function RespondScreen() {
   const verifyLocation = useCallback(async () => {
     try {
       setGettingLocation(true);
+      setLocationError(null);
       setLocationStatus("checking");
 
       // Request location permission
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
+        const message =
+          Platform.OS === "web"
+            ? "Allow location access in your browser settings or enable Testing Mode to continue without verification."
+            : "We need your location to verify you're at the question location.";
+        setLocationError(message);
         setLocationStatus("error");
-        Alert.alert(
-          "Location Required",
-          "We need your location to verify you're at the question location.",
-        );
+        Alert.alert("Location Required", message);
         return;
       }
 
@@ -130,11 +134,19 @@ export default function RespondScreen() {
       }
     } catch (error) {
       console.error("Error verifying location:", error);
+      let message = "Could not verify your location. Please check your GPS and try again.";
+      if (error?.code === 1) {
+        message = "Location permission was denied. Enable access in your device or browser settings, or turn on Testing Mode.";
+      } else if (error?.code === 2) {
+        message = "We couldn't determine your position. Try moving to an open area or toggling airplane mode.";
+      } else if (error?.code === 3) {
+        message = "Location request timed out. Please try again.";
+      } else if (Platform.OS === "web" && typeof error?.message === "string" && error.message.toLowerCase().includes("secure")) {
+        message = "The browser blocked location services on this connection. Use https:// or enable Testing Mode for manual capture.";
+      }
+      setLocationError(message);
       setLocationStatus("error");
-      Alert.alert(
-        "Location Error",
-        "Could not verify your location. Please check your GPS and try again.",
-      );
+      Alert.alert("Location Error", message);
     } finally {
       setGettingLocation(false);
     }
@@ -1119,3 +1131,7 @@ export default function RespondScreen() {
     </View>
   );
 }
+
+
+
+
