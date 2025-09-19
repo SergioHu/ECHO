@@ -1,0 +1,11 @@
+[dotenv@17.2.2] injecting env (9) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+==========================================
+ ECHO SIMPLIFIED DEV SERVER
+ Mode: DEVELOPMENT (All stubs enabled)
+==========================================
+ ✅ Server running on port 3000
+ ✅ Health check: http://localhost:3000/health
+ ✅ CORS enabled for all origins
+==========================================
+ Ready to handle requests...
+
