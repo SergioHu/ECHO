@@ -1,0 +1,15 @@
+env: load .env
+env: export GOOGLE_MAPS_API_KEY EXPO_PUBLIC_PROJECT_GROUP_ID EXPO_PUBLIC_BASE_URL EXPO_PUBLIC_PROXY_BASE_URL EXPO_PUBLIC_HOST EXPO_PUBLIC_UPLOADCARE_PUBLIC_KEY EXPO_PUBLIC_BASE_CREATE_USER_CONTENT_URL EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ECHO_DEV_STUBS
+Starting project at C:\Users\ferre\Desktop\ECHO\apps\mobile
+Using src/app as the root directory for Expo Router.
+Starting Metro Bundler
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web .\index.web.tsx ▓▓▓░░░░░░░░░░░░░ 21.8% (18/44)
+Web .\index.web.tsx ▓▓▓▓▓▓▓▓▓░░░░░░░ 59.1% (716/932)
+Web .\index.web.tsx ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 96.1% (3104/3167)
+Web Bundled 9274ms index.web.tsx (3239 modules)
+ LOG  [web] Logs will appear in the browser console
+Web .\index.web.tsx ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 1030ms index.web.tsx (1 module)
+ LOG  [web] Logs will appear in the browser console
