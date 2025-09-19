@@ -13,6 +13,7 @@ import {
   Camera,
   MapPin
 } from 'lucide-react-native';
+import { debugLog } from '@/utils/debug';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -60,7 +61,7 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: () => {
             // TODO: Implement sign out
-            console.log("Signing out...");
+            debugLog("Signing out...");
           }
         }
       ]

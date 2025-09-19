@@ -1,3 +1,4 @@
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,8 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Modal,
+  Platform,
+  Image,
+  ActivityIndicator,
 } from "react-native";
-import { useState, useCallback, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, router } from "expo-router";
@@ -22,9 +25,11 @@ import {
   CheckCircle2,
   Navigation,
   AlertTriangle,
+  Shield,
 } from "lucide-react-native";
 import * as Location from "expo-location";
-import EchoTwoShotCapture from "@/components/EchoTwoShotCapture";
+import EchoCameraUnified from "@/components/EchoCameraUnified";
+import EchoCameraWeb from "@/components/camera/EchoCameraWeb";
 import KeyboardAvoidingAnimatedView from "@/components/KeyboardAvoidingAnimatedView";
 
 export default function RespondScreen() {
@@ -146,13 +151,14 @@ export default function RespondScreen() {
       testingMode,
       disabled: locationStatus !== "verified" && !testingMode,
       shouldEnable: locationStatus === "verified" || testingMode,
+      existingCameraResult: cameraResult, // Log existing result
     });
 
     if (locationStatus !== "verified" && !testingMode) {
       Alert.alert(
         "Location Required",
         locationStatus === "too_far"
-          ? `You're ${distance}m away from the question location. You need to be within 200m to respond.`
+          ? `You are ${distance || 0}m away from the question location. You need to be within 200m to respond.`
           : "Please verify your location first.",
       );
       return;
@@ -161,14 +167,41 @@ export default function RespondScreen() {
   };
 
   const handleCameraComplete = useCallback((result) => {
-    setCameraResult(result);
+    console.log('Camera result received:', result); // Debug log
+    
+    // Extract the URI from various possible sources
+    let imageUri = result.imageUrl || result.localUri || result.uri || result.publicUrl;
+    
+    // Handle data URIs that might be malformed
+    if (imageUri && imageUri.startsWith('data:image')) {
+      // Ensure data URI is properly formatted
+      if (!imageUri.includes('base64,')) {
+        console.error('Invalid data URI format:', imageUri.substring(0, 50));
+        imageUri = null;
+      }
+    }
+    
+    // For development, use a placeholder if no valid URI
+    if (!imageUri && __DEV__) {
+      console.warn('No valid image URI, using placeholder');
+      imageUri = 'https://via.placeholder.com/600x800/3B82F6/FFFFFF?text=Photo+Captured';
+    }
+    
+    // Normalize the result to ensure we have the correct URI property
+    const normalizedResult = {
+      ...result,
+      imageUrl: imageUri,
+      localUri: imageUri,
+      // Store original URI for debugging
+      originalUri: result.imageUrl || result.localUri || result.uri || result.publicUrl,
+    };
+    
+    console.log('Normalized result with URI:', imageUri);
+    console.log('Full normalized result:', normalizedResult);
+    
+    setCameraResult(normalizedResult);
     setShowCamera(false);
-
-    Alert.alert(
-      "Photos Captured Successfully!",
-      "Both context and detail photos have been processed with privacy protection.",
-      [{ text: "Continue", style: "default" }],
-    );
+    // Removed redundant Alert - the UI will show the success state with image
   }, []);
 
   const handleCameraCancel = useCallback(() => {
@@ -182,14 +215,14 @@ export default function RespondScreen() {
     }
 
     if (!cameraResult) {
-      Alert.alert("Missing Photos", "Please take the required photos first.");
+      Alert.alert("Missing Photo", "Please take the required photo first.");
       return;
     }
 
     if (!response.trim()) {
       Alert.alert(
         "Missing Text",
-        "Please provide a text explanation with your photos.",
+        "Please provide a text explanation with your photo.",
       );
       return;
     }
@@ -200,8 +233,7 @@ export default function RespondScreen() {
       const responseData = {
         questionId: id,
         textResponse: response.trim(),
-        contextImage: cameraResult.contextImage,
-        roiImage: cameraResult.roiImage,
+        imageUrl: cameraResult.imageUrl,
         challengeCode: cameraResult.challengeCode,
         timestamp: cameraResult.timestamp,
         userLocation: currentLocation,
@@ -218,7 +250,7 @@ export default function RespondScreen() {
         "Response Submitted!",
         testingMode
           ? "Test response submitted successfully! This was in testing mode."
-          : `You'll receive $${question.reward} once the questioner confirms your response.`,
+          : `You'll receive $${question.reward.toFixed(2)} once the questioner confirms your response.`,
         [
           {
             text: "OK",
@@ -243,7 +275,7 @@ export default function RespondScreen() {
             color: "#F59E0B",
             bgColor: "#FEF3C7",
             icon: <Navigation size={16} color="#D97706" />,
-            title: "Checking Location...",
+            title: "Checking Location",
             message: gettingLocation
               ? "Getting your current location"
               : "Verifying position",
@@ -253,8 +285,8 @@ export default function RespondScreen() {
             color: "#10B981",
             bgColor: "#D1FAE5",
             icon: <CheckCircle2 size={16} color="#059669" />,
-            title: "Location Verified ✓",
-            message: `You're ${distance}m from the question location`,
+            title: "Location Verified",
+            message: `You're ${distance || 0}m from the question location`,
           };
         case "too_far":
           return {
@@ -262,7 +294,7 @@ export default function RespondScreen() {
             bgColor: "#FEE2E2",
             icon: <AlertTriangle size={16} color="#DC2626" />,
             title: "Too Far Away",
-            message: `You're ${distance}m away (max 200m allowed)`,
+            message: `You're ${distance || 0}m away (max 200m allowed)`,
           };
         case "error":
           return {
@@ -320,7 +352,7 @@ export default function RespondScreen() {
         </Text>
 
         {(locationStatus === "too_far" || locationStatus === "error") && (
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+          <View style={{ flexDirection: "row", marginTop: 12 }}>
             <TouchableOpacity
               onPress={verifyLocation}
               disabled={gettingLocation}
@@ -333,7 +365,7 @@ export default function RespondScreen() {
               }}
             >
               <Text style={{ fontSize: 14, color: "#fff", fontWeight: "500" }}>
-                {gettingLocation ? "Checking..." : "Try Again"}
+                {gettingLocation ? "Checking" : "Try Again"}
               </Text>
             </TouchableOpacity>
 
@@ -350,6 +382,7 @@ export default function RespondScreen() {
                 borderRadius: 8,
                 paddingVertical: 8,
                 paddingHorizontal: 12,
+                marginLeft: 12,
               }}
             >
               <Text style={{ fontSize: 14, color: "#fff", fontWeight: "500" }}>
@@ -378,7 +411,7 @@ export default function RespondScreen() {
                 marginBottom: 4,
               }}
             >
-              🧪 Testing Mode Active
+              Testing Mode Active
             </Text>
             <Text style={{ fontSize: 13, color: "#D97706", lineHeight: 18 }}>
               Location verification bypassed for testing. You can now use the
@@ -431,7 +464,7 @@ export default function RespondScreen() {
           </Text>
           {/* Debug: Show testing mode state */}
           <Text style={{ fontSize: 10, color: "#EF4444" }}>
-            DEBUG: testing={testingMode ? "ON" : "OFF"}
+            {`DEBUG: testing=${testingMode ? "ON" : "OFF"}`}
           </Text>
         </View>
 
@@ -488,7 +521,7 @@ export default function RespondScreen() {
                   marginLeft: 2,
                 }}
               >
-                {question.reward.toFixed(2)} reward
+                {`$${question.reward.toFixed(2)} reward`}
               </Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -552,7 +585,7 @@ export default function RespondScreen() {
                     color: "#111827",
                   }}
                 >
-                  Capture Privacy-Safe Photos
+                  Capture Privacy-Safe Photo
                 </Text>
               </View>
 
@@ -564,9 +597,7 @@ export default function RespondScreen() {
                   lineHeight: 20,
                 }}
               >
-                Take two photos: one for context and one focused detail. Our
-                system automatically protects privacy by processing images on
-                your device.
+                {`Take a privacy-safe photo using our real-time face blurring camera. Faces are automatically blurred before the photo is captured.`}
               </Text>
 
               {!cameraResult ? (
@@ -598,74 +629,256 @@ export default function RespondScreen() {
                       ? "Start Camera"
                       : "Verify Location First"}
                   </Text>
-                  {/* Debug info - remove after testing */}
                   {testingMode && (
                     <Text
                       style={{ fontSize: 10, color: "#fff", marginLeft: 8 }}
                     >
-                      (TEST)
+                      TEST
                     </Text>
                   )}
                 </TouchableOpacity>
               ) : (
                 <View
                   style={{
-                    backgroundColor: "#F0FDF4",
-                    borderRadius: 12,
-                    padding: 16,
+                    backgroundColor: "#fff",
+                    borderRadius: 16,
+                    overflow: "hidden",
                     borderWidth: 1,
-                    borderColor: "#10B981",
+                    borderColor: "#E5E7EB",
+                    ...Platform.select({
+                      ios: {
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 8,
+                      },
+                      android: {
+                        elevation: 3,
+                      },
+                      web: {
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                      },
+                    }),
                   }}
                 >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <CheckCircle2 size={20} color="#10B981" />
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: "600",
-                        color: "#10B981",
-                        marginLeft: 8,
-                      }}
-                    >
-                      Photos Captured Successfully
-                    </Text>
+                  {/* Captured Photo Display - PRIMARY ELEMENT */}
+                  <View style={{ position: "relative" }}>
+                    {(cameraResult?.imageUrl || cameraResult?.localUri) ? (
+                      <>
+                        <Image
+                          source={{ uri: cameraResult.imageUrl || cameraResult.localUri }}
+                          style={{
+                            width: "100%",
+                            height: 240,
+                            backgroundColor: "#F3F4F6",
+                          }}
+                          resizeMode="cover"
+                          onError={(e) => {
+                            console.error('[IMAGE ERROR] Failed to load image:', {
+                              error: e.nativeEvent?.error,
+                              uri: cameraResult.imageUrl || cameraResult.localUri,
+                              cameraResult: JSON.stringify(cameraResult, null, 2)
+                            });
+                          }}
+                          onLoad={() => {
+                            console.log('[IMAGE SUCCESS] Image loaded successfully:', cameraResult.imageUrl || cameraResult.localUri);
+                          }}
+                          onLoadStart={() => {
+                            console.log('[IMAGE START] Loading image from:', cameraResult.imageUrl || cameraResult.localUri);
+                          }}
+                          onLoadEnd={() => {
+                            console.log('[IMAGE END] Image loading finished');
+                          }}
+                        />
+                        {/* Loading indicator overlay */}
+                        <View style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                          display: 'none' // This would need state management to show/hide properly
+                        }}>
+                          <ActivityIndicator size="large" color="#3B82F6" />
+                          <Text style={{ marginTop: 8, color: '#6B7280' }}>{'Loading image'}</Text>
+                        </View>
+                      </>
+                    ) : (
+                      <View
+                        style={{
+                          width: "100%",
+                          height: 240,
+                          backgroundColor: "#F3F4F6",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Camera size={48} color="#9CA3AF" />
+                        <Text
+                          style={{
+                            marginTop: 12,
+                            fontSize: 14,
+                            color: "#6B7280",
+                          }}
+                        >
+                          No photo available
+                        </Text>
+                      </View>
+                    )}
+                    {/* Privacy Badge Overlay - Only show when image exists */}
+                    {(cameraResult?.imageUrl || cameraResult?.localUri) && (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          backgroundColor: "rgba(16, 185, 129, 0.95)",
+                          paddingHorizontal: 12,
+                          paddingVertical: 6,
+                          borderRadius: 20,
+                          flexDirection: "row",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Shield size={14} color="#fff" />
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontSize: 12,
+                            fontWeight: "600",
+                            marginLeft: 4,
+                          }}
+                        >
+                          Privacy Protected
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  <Text
-                    style={{ fontSize: 14, color: "#15803D", marginBottom: 12 }}
-                  >
-                    ✓ Context photo (privacy-protected)
-                    {"\n"}✓ Detail photo (region-focused)
-                    {"\n"}✓ Challenge code: {cameraResult.challengeCode}
-                    {"\n"}✓ Location verified: {distance}m away
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleStartCamera}
-                    style={{
-                      backgroundColor: "#fff",
-                      borderWidth: 1,
-                      borderColor: "#10B981",
-                      borderRadius: 8,
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      alignSelf: "flex-start",
-                    }}
-                  >
-                    <Text
+
+                  {/* Success Information */}
+                  <View style={{ padding: 16 }}>
+                    {/* Success Header */}
+                    <View
                       style={{
-                        fontSize: 14,
-                        color: "#10B981",
-                        fontWeight: "500",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginBottom: 16,
                       }}
                     >
-                      Retake Photos
-                    </Text>
-                  </TouchableOpacity>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          backgroundColor: "#D1FAE5",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <CheckCircle2 size={20} color="#10B981" />
+                      </View>
+                      <View style={{ marginLeft: 12, flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 18,
+                            fontWeight: "700",
+                            color: "#111827",
+                          }}
+                        >
+                          Photo Captured Successfully
+                        </Text>
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            color: "#6B7280",
+                            marginTop: 2,
+                          }}
+                        >
+                          Ready to submit with your response
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Protection Details */}
+                    <View
+                      style={{
+                        backgroundColor: "#F0FDF4",
+                        borderRadius: 12,
+                        padding: 12,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "600",
+                          color: "#15803D",
+                          marginBottom: 8,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Protection Applied
+                      </Text>
+                      <View style={{ flexDirection: "row", marginBottom: 6, alignItems: "flex-start" }}>
+                        <CheckCircle2 size={14} color="#15803D" style={{ marginTop: 2 }} />
+                        <Text style={{ fontSize: 14, color: "#15803D", marginLeft: 8, flex: 1 }}>
+                          Faces automatically blurred in real-time
+                        </Text>
+                      </View>
+                      {cameraResult?.challengeCode && cameraResult.challengeCode.trim() && (
+                        <View style={{ flexDirection: "row", marginBottom: 6, alignItems: "flex-start" }}>
+                          <CheckCircle2 size={14} color="#15803D" style={{ marginTop: 2 }} />
+                          <Text style={{ fontSize: 14, color: "#15803D", marginLeft: 8, flex: 1 }}>
+                            {`Challenge verified: ${cameraResult.challengeCode || 'N/A'}`}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                        <CheckCircle2 size={14} color="#15803D" style={{ marginTop: 2 }} />
+                        <Text style={{ fontSize: 14, color: "#15803D", marginLeft: 8, flex: 1 }}>
+                          {`Location confirmed: ${distance || 0}m away`}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={{ flexDirection: "row" }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setCameraResult(null); // Clear previous result before retaking
+                          handleStartCamera();
+                        }}
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#fff",
+                          borderWidth: 1,
+                          borderColor: "#D1D5DB",
+                          borderRadius: 12,
+                          paddingVertical: 12,
+                          paddingHorizontal: 16,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Camera size={18} color="#6B7280" />
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            color: "#6B7280",
+                            fontWeight: "600",
+                            marginLeft: 8,
+                          }}
+                        >
+                          Retake Photo
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 </View>
               )}
             </View>
@@ -723,8 +936,7 @@ export default function RespondScreen() {
                   lineHeight: 20,
                 }}
               >
-                Describe what your photos show. Be specific and helpful to
-                answer the question completely.
+                {`Describe what your photo shows. Be specific and helpful to answer the question completely.`}
               </Text>
 
               <View
@@ -756,7 +968,7 @@ export default function RespondScreen() {
                       minHeight: 100,
                       textAlignVertical: "top",
                     }}
-                    placeholder="Describe what you can see that answers their question..."
+                    placeholder="Describe what you can see that answers their question"
                     placeholderTextColor="#9CA3AF"
                     value={response}
                     onChangeText={setResponse}
@@ -777,7 +989,7 @@ export default function RespondScreen() {
                     Be specific and helpful
                   </Text>
                   <Text style={{ fontSize: 12, color: "#9CA3AF" }}>
-                    {response.length}/500
+                    {`${response.length}/500`}
                   </Text>
                 </View>
               </View>
@@ -800,7 +1012,7 @@ export default function RespondScreen() {
                   marginBottom: 8,
                 }}
               >
-                🔒 Privacy Protection Active
+                Privacy Protection Active
               </Text>
               <Text
                 style={{
@@ -809,9 +1021,7 @@ export default function RespondScreen() {
                   lineHeight: 18,
                 }}
               >
-                Your photos are processed on-device to protect privacy. Context
-                photos are downscaled to prevent face identification, and detail
-                photos are cropped to avoid sensitive areas.
+                {`Your photo is processed on-device with real-time face blurring. All faces are automatically blurred before the photo is captured, ensuring complete privacy protection.`}
               </Text>
             </View>
           </View>
@@ -862,7 +1072,7 @@ export default function RespondScreen() {
                 <Text
                   style={{ fontSize: 16, fontWeight: "600", color: "#fff" }}
                 >
-                  Submitting Response...
+                  Submitting Response
                 </Text>
               </>
             ) : (
@@ -876,7 +1086,7 @@ export default function RespondScreen() {
                     marginLeft: 8,
                   }}
                 >
-                  Submit Response (${question.reward.toFixed(2)})
+                  {`Submit Response ($${question.reward.toFixed(2)})`}
                 </Text>
               </>
             )}
@@ -890,12 +1100,21 @@ export default function RespondScreen() {
         animationType="slide"
         presentationStyle="fullScreen"
       >
-        <EchoTwoShotCapture
-          userId="current-user" // TODO: Get from auth context
-          requestId={id}
-          onComplete={handleCameraComplete}
-          onCancel={handleCameraCancel}
-        />
+        {Platform.OS === 'web' ? (
+          <EchoCameraWeb
+            userId="current-user"
+            requestId={id}
+            onComplete={handleCameraComplete}
+            onCancel={handleCameraCancel}
+          />
+        ) : (
+          <EchoCameraUnified
+            userId="current-user"
+            requestId={id}
+            onComplete={handleCameraComplete}
+            onCancel={handleCameraCancel}
+          />
+        )}
       </Modal>
     </View>
   );

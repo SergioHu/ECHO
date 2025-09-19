@@ -4,7 +4,7 @@ import React from 'react';
 export const PROVIDER_GOOGLE = 'google';
 export const PROVIDER_DEFAULT = undefined;
 
-const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 
 const MapView = React.forwardRef((props, ref) => {
   return <WebMapView ref={ref} googleMapsApiKey={GOOGLE_MAPS_API_KEY} {...props} />;

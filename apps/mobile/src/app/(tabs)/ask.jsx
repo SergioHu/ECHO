@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   Alert,
@@ -16,15 +15,23 @@ import { StatusBar } from "expo-status-bar";
 import {
   MapPin,
   DollarSign,
-  Camera,
+  Send,
   Target,
   X,
   Check,
   Map,
+  AlertCircle,
+  HelpCircle,
+  Info,
 } from "lucide-react-native";
 import KeyboardAvoidingAnimatedView from "@/components/KeyboardAvoidingAnimatedView";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Input from '@/components/ui/Input';
+import { debugLog, debugError } from '@/utils/debug';
 
 const { width, height } = Dimensions.get("window");
 
@@ -38,6 +45,12 @@ export default function AskScreen() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  
+  // Form validation
+  const [errors, setErrors] = useState({
+    question: '',
+    reward: '',
+  });
   const [currentLocation, setCurrentLocation] = useState({
     latitude: 40.7589,
     longitude: -73.9851,
@@ -51,6 +64,51 @@ export default function AskScreen() {
 
   const modalAnimation = useRef(new Animated.Value(0)).current;
   const mapRef = useRef(null);
+
+  // Form validation functions
+  const validateQuestion = (text) => {
+    if (!text.trim()) {
+      return 'Please enter your question';
+    }
+    if (text.trim().length < 10) {
+      return 'Question must be at least 10 characters long';
+    }
+    return '';
+  };
+
+  const validateReward = (amount) => {
+    if (!amount) {
+      return 'Please enter a reward amount';
+    }
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount < 0.5) {
+      return 'Minimum reward is $0.50';
+    }
+    if (numAmount > 1000) {
+      return 'Maximum reward is $1000';
+    }
+    return '';
+  };
+
+  const handleQuestionChange = (text) => {
+    setQuestion(text);
+    if (errors.question) {
+      setErrors(prev => ({ ...prev, question: validateQuestion(text) }));
+    }
+  };
+
+  const handleRewardChange = (text) => {
+    // Only allow numbers and decimal point
+    const filteredText = text.replace(/[^0-9.]/g, '');
+    // Prevent multiple decimal points
+    const parts = filteredText.split('.');
+    const cleanedText = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : filteredText;
+    
+    setReward(cleanedText);
+    if (errors.reward) {
+      setErrors(prev => ({ ...prev, reward: validateReward(cleanedText) }));
+    }
+  };
 
   const getCurrentLocation = async () => {
     setGettingLocation(true);
@@ -104,7 +162,7 @@ export default function AskScreen() {
           });
         }
       } catch (error) {
-        console.error("Error reverse geocoding:", error);
+        debugError("Error reverse geocoding:", error);
         setLocationAddress("Current Location");
         setSelectedLocation({
           latitude,
@@ -113,7 +171,7 @@ export default function AskScreen() {
         });
       }
     } catch (error) {
-      console.error("Error getting location:", error);
+      debugError("Error getting location:", error);
       Alert.alert(
         "Error",
         "Could not get your current location. Please try again.",
@@ -195,7 +253,7 @@ export default function AskScreen() {
     setShowModal(true);
     Animated.spring(modalAnimation, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
       tension: 100,
       friction: 8,
     }).start();
@@ -205,28 +263,39 @@ export default function AskScreen() {
     Animated.timing(modalAnimation, {
       toValue: 0,
       duration: 250,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start(() => {
       setShowModal(false);
     });
   };
 
   const submitQuestion = async () => {
-    if (!question.trim()) {
-      Alert.alert("Missing information", "Please enter your question.");
+    // Validate all fields
+    const questionError = validateQuestion(question);
+    const rewardError = validateReward(reward);
+    
+    const newErrors = {
+      question: questionError,
+      reward: rewardError,
+    };
+    
+    setErrors(newErrors);
+    
+    // Check if there are any errors
+    if (questionError || rewardError) {
       return;
     }
 
-    if (!reward || parseFloat(reward) < 0.5) {
-      Alert.alert("Invalid reward", "Minimum reward is $0.50.");
+    if (!selectedLocation) {
+      Alert.alert("Missing location", "Please select a location for your question.");
       return;
     }
 
     setLoading(true);
     try {
       // TODO: Submit to API
-      console.log("Submitting question:", {
-        question,
+      debugLog("Submitting question:", {
+        question: question.trim(),
         location: selectedLocation,
         reward: parseFloat(reward),
       });
@@ -237,16 +306,23 @@ export default function AskScreen() {
       Alert.alert(
         "Success!",
         "Your question has been posted. You'll be notified when someone responds.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // Reset form and close modal
+              setQuestion("");
+              setReward("");
+              setSelectedLocation(null);
+              setLocationAddress("");
+              setErrors({ question: '', reward: '' });
+              closeModal();
+            },
+          },
+        ]
       );
-
-      // Reset form and close modal
-      setQuestion("");
-      setReward("");
-      setSelectedLocation(null);
-      setLocationAddress("");
-      closeModal();
     } catch (error) {
-      console.error("Error submitting question:", error);
+      debugError("Error submitting question:", error);
       Alert.alert("Error", "Could not post your question. Please try again.");
     }
     setLoading(false);
@@ -298,11 +374,11 @@ export default function AskScreen() {
           onRegionChangeComplete={setMapRegion}
           onPress={handleMapPress}
           onMapReady={() => {
-            console.log("Map is ready");
+            debugLog("Map is ready");
             setMapLoaded(true);
           }}
           onMapLoaded={() => {
-            console.log("Map loaded");
+            debugLog("Map loaded");
             setMapLoaded(true);
           }}
           showsUserLocation={true}
@@ -607,130 +683,99 @@ export default function AskScreen() {
                   </View>
 
                   {/* Question Input */}
-                  <View style={{ marginBottom: 24 }}>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: "600",
-                        color: "#111827",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Your Question
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: "#F9FAFB",
-                        borderRadius: 12,
-                        padding: 16,
-                        fontSize: 16,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        minHeight: 120,
-                        textAlignVertical: "top",
-                      }}
-                      placeholder="What do you want to know? Be specific about what visual proof you need..."
-                      placeholderTextColor="#9CA3AF"
-                      value={question}
-                      onChangeText={setQuestion}
-                      multiline
-                      maxLength={300}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: "#6B7280",
-                        textAlign: "right",
-                        marginTop: 4,
-                      }}
-                    >
-                      {question.length}/300
-                    </Text>
-                  </View>
+                  <Input
+                    label="Your Question"
+                    placeholder="What do you want to know? Be specific about what visual proof you need..."
+                    value={question}
+                    onChangeText={handleQuestionChange}
+                    error={errors.question}
+                    helperText="Be clear and specific to get the best responses"
+                    multiline
+                    numberOfLines={4}
+                    maxLength={300}
+                    leftIcon={<HelpCircle size={20} color="#6B7280" />}
+                    required
+                  />
 
                   {/* Reward */}
-                  <View style={{ marginBottom: 24 }}>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: "600",
-                        color: "#111827",
-                        marginBottom: 8,
-                      }}
-                    >
-                      Reward Amount
-                    </Text>
-                    <View
-                      style={{
-                        backgroundColor: "#F9FAFB",
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: "#E5E7EB",
-                        flexDirection: "row",
-                        alignItems: "center",
-                        paddingLeft: 16,
-                      }}
-                    >
-                      <DollarSign size={20} color="#6B7280" />
-                      <TextInput
-                        style={{
-                          flex: 1,
-                          fontSize: 16,
-                          padding: 16,
-                          paddingLeft: 8,
-                        }}
-                        placeholder="0.50"
-                        placeholderTextColor="#9CA3AF"
-                        value={reward}
-                        onChangeText={setReward}
-                        keyboardType="decimal-pad"
-                      />
-                    </View>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: "#6B7280",
-                        marginTop: 4,
-                      }}
-                    >
-                      Minimum $0.50. Higher rewards get faster responses.
-                    </Text>
-                  </View>
+                  <Input
+                    label="Reward Amount"
+                    placeholder="0.50"
+                    value={reward}
+                    onChangeText={handleRewardChange}
+                    error={errors.reward}
+                    helperText="Minimum $0.50. Higher rewards get faster responses."
+                    keyboardType="decimal-pad"
+                    leftIcon={<DollarSign size={20} color="#6B7280" />}
+                    required
+                  />
 
                   {/* Info Box */}
-                  <View
+                  <Card
+                    variant="info"
                     style={{
                       backgroundColor: "#EBF5FF",
-                      borderRadius: 12,
-                      padding: 16,
+                      borderColor: "#BFDBFE",
+                      borderWidth: 1,
                       marginBottom: 32,
                     }}
                   >
-                    <View style={{ flexDirection: "row", marginBottom: 8 }}>
-                      <Camera size={20} color="#3B82F6" />
-                      <Text
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 12 }}>
+                      <View
                         style={{
-                          fontSize: 16,
-                          fontWeight: "600",
-                          color: "#1E40AF",
-                          marginLeft: 8,
+                          backgroundColor: "#DBEAFE",
+                          borderRadius: 20,
+                          padding: 8,
+                          marginRight: 12,
                         }}
                       >
-                        How it works
-                      </Text>
+                        <Info size={20} color="#3B82F6" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontSize: 16,
+                            fontWeight: "600",
+                            color: "#1E40AF",
+                            marginBottom: 6,
+                          }}
+                        >
+                          How Echo Works
+                        </Text>
+                        <View>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: "#1E40AF",
+                              lineHeight: 20,
+                              marginBottom: 4,
+                            }}
+                          >
+                            • Your question will be posted at this location
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: "#1E40AF",
+                              lineHeight: 20,
+                              marginBottom: 4,
+                            }}
+                          >
+                            • Someone nearby (an Echo) will answer with photos
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              color: "#1E40AF",
+                              lineHeight: 20,
+                            }}
+                          >
+                            • You'll get privacy-protected visual proof
+                          </Text>
+                        </View>
+                      </View>
                     </View>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#1E40AF",
-                        lineHeight: 20,
-                      }}
-                    >
-                      Someone nearby will take a photo to answer your question.
-                      All photos are processed to protect privacy while
-                      providing the visual proof you need.
-                    </Text>
-                  </View>
+                  </Card>
                 </View>
               </ScrollView>
 
@@ -743,26 +788,14 @@ export default function AskScreen() {
                   borderTopColor: "#E5E7EB",
                 }}
               >
-                <TouchableOpacity
+                <Button
+                  title={loading ? "Posting Question..." : "Post Question"}
                   onPress={submitQuestion}
                   disabled={loading}
-                  style={{
-                    backgroundColor: loading ? "#9CA3AF" : "#3B82F6",
-                    borderRadius: 12,
-                    padding: 16,
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: "600",
-                      color: "#fff",
-                    }}
-                  >
-                    {loading ? "Posting Question..." : "Post Question"}
-                  </Text>
-                </TouchableOpacity>
+                  loading={loading}
+                  size="large"
+                  icon={loading ? undefined : <Send size={20} color="#fff" />}
+                />
               </View>
             </Animated.View>
           </View>

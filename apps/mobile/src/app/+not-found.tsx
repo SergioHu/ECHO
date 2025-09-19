@@ -118,7 +118,7 @@ function NotFoundScreen() {
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="arrow-back" size={18} color="#666" />
             </TouchableOpacity>
-            <View style={styles.pathContainer}>
+            <View style={[styles.pathContainer, { marginLeft: 8 }]}>
               <View style={styles.pathPrefix}>
                 <Text style={styles.pathPrefixText}>/</Text>
               </View>
@@ -147,7 +147,7 @@ function NotFoundScreen() {
                       Create a new screen to live at "/{missingPath}"
                     </Text>
                   </View>
-                  <View style={styles.createPageButtonContainer}>
+                  <View style={[styles.createPageButtonContainer, { marginTop: 15 }]}>
                     <TouchableOpacity
                       onPress={() => handleCreatePage()}
                       style={styles.createPageButton}
@@ -243,7 +243,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 20,
-    gap: 8,
   },
   backButton: {
     width: 40,
@@ -323,10 +322,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 20,
     backgroundColor: '#fff',
-    gap: 15,
   },
   createPageTextContainer: {
-    gap: 10,
   },
   createPageTitle: {
     fontSize: 14,
@@ -338,6 +335,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+    marginTop: 10,
   },
   createPageButtonContainer: {
     alignItems: 'flex-start',
@@ -370,7 +368,6 @@ const styles = StyleSheet.create({
   pagesListContainer: {
     width: '100%',
     maxWidth: 600,
-    gap: 10,
   },
   pageButton: {
     flexDirection: 'row',
@@ -383,6 +380,7 @@ const styles = StyleSheet.create({
     borderColor: '#e5e5e5',
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
     elevation: 1,
+    marginBottom: 10,
   },
   routeName: {
     fontSize: 16,
@@ -401,7 +399,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    gap: 40,
   },
   routeCard: {
     width: '100%',

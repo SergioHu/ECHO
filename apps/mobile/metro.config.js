@@ -2,7 +2,8 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('node:path');
 const fs = require('node:fs');
 const { FileStore } = require('metro-cache');
-const { reportErrorToRemote } = require('./__create/report-error-to-remote');
+// Temporarily disabled error reporting
+// const { reportErrorToRemote } = require('./__create/report-error-to-remote');
 const {
   handleResolveRequestError,
   VIRTUAL_ROOT,
@@ -13,6 +14,9 @@ const {
 const config = getDefaultConfig(__dirname);
 
 const WEB_ALIASES = {
+  'react-native-vision-camera': path.resolve(__dirname, './polyfills/web/visionCamera.web.tsx'),
+  'react-native-view-shot': path.resolve(__dirname, './polyfills/web/viewShot.web.tsx'),
+  'react-native-worklets-core': path.resolve(__dirname, './polyfills/web/workletsCore.web.tsx'),
   'expo-secure-store': path.resolve(__dirname, './polyfills/web/secureStore.web.ts'),
   'react-native-webview': path.resolve(__dirname, './polyfills/web/webview.web.tsx'),
   'react-native-safe-area-context': path.resolve(
@@ -94,27 +98,28 @@ config.cacheStores = () => [
   }),
 ];
 config.resetCache = false;
-config.fileMapCacheDirectory = cacheDir;
-config.reporter = {
-  ...config.reporter,
-  update: (event) => {
-    config.reporter?.update(event);
-    const reportableErrors = [
-      'error',
-      'bundling_error',
-      'cache_read_error',
-      'hmr_client_error',
-      'transformer_load_failed',
-    ];
-    for (const errorType of reportableErrors) {
-      if (event.type === errorType) {
-        reportErrorToRemote({ error: event.error }).catch((reportError) => {
-          // no-op
-        });
-      }
-    }
-    return event;
-  },
-};
+// config.fileMapCacheDirectory is deprecated in newer versions of Metro
+// Temporarily disabled error reporting
+// config.reporter = {
+//   ...config.reporter,
+//   update: (event) => {
+//     config.reporter?.update(event);
+//     const reportableErrors = [
+//       'error',
+//       'bundling_error',
+//       'cache_read_error',
+//       'hmr_client_error',
+//       'transformer_load_failed',
+//     ];
+//     for (const errorType of reportableErrors) {
+//       if (event.type === errorType) {
+//         reportErrorToRemote({ error: event.error }).catch((reportError) => {
+//           // no-op
+//         });
+//       }
+//     }
+//     return event;
+//   },
+// };
 
 module.exports = config;

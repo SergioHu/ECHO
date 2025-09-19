@@ -1,7 +1,8 @@
 import * as SecureStore from 'expo-secure-store';
-import { fetch as expoFetch } from 'expo/fetch';
+// Use native fetch on web, expo/fetch for native
+const expoFetch = typeof window !== 'undefined' ? fetch : require('expo/fetch').fetch;
 
-const originalFetch = fetch;
+const originalFetch = typeof window !== 'undefined' ? window.fetch : global.fetch;
 const authKey = `${process.env.EXPO_PUBLIC_PROJECT_GROUP_ID}-jwt`;
 
 const getURLFromArgs = (...args: Parameters<typeof fetch>) => {

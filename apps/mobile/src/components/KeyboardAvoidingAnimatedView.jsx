@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect } from 'react';
 import { Platform, Keyboard, KeyboardAvoidingView } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -15,13 +14,29 @@ const KeyboardAvoidingAnimatedView = (props, ref) => {
     ...leftoverProps
   } = props;
 
-  const animatedViewRef = useRef(null); // ref to animated view in this polyfill
-  const initialHeightRef = useRef(0); // original height of animated view before keyboard appears
-  const bottomRef = useRef(0); // current bottom offset value of animated view
-  const bottomHeight = useSharedValue(0); // whats going to be added to the bottom when keyboard appears
+  // Early return for web to avoid Reanimated initialization
+  if (Platform.OS === 'web') {
+    return (
+      <KeyboardAvoidingView
+        ref={ref}
+        behavior={behavior}
+        style={style}
+        contentContainerStyle={contentContainerStyle}
+        onLayout={onLayout}
+        {...leftoverProps}
+      >
+        {children}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  const animatedViewRef = useRef(null);
+  const initialHeightRef = useRef(0);
+  const bottomRef = useRef(0);
+  const bottomHeight = useSharedValue(0);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || Platform.OS === 'web') return;
 
     const onKeyboardShow = (event) => {
       const { duration, endCoordinates } = event;
@@ -30,8 +45,6 @@ const KeyboardAvoidingAnimatedView = (props, ref) => {
       if (!animatedView) return;
 
       let height = 0;
-
-      // calculate how much the view needs to move up
       const keyboardY = endCoordinates.screenY - keyboardVerticalOffset;
       height = Math.max(animatedView.y + animatedView.height - keyboardY, 0);
 
@@ -46,12 +59,12 @@ const KeyboardAvoidingAnimatedView = (props, ref) => {
       bottomRef.current = 0;
     };
 
-    Keyboard.addListener('keyboardWillShow', onKeyboardShow);
-    Keyboard.addListener('keyboardWillHide', onKeyboardHide);
+    const showListener = Keyboard.addListener('keyboardWillShow', onKeyboardShow);
+    const hideListener = Keyboard.addListener('keyboardWillHide', onKeyboardHide);
 
     return () => {
-      Keyboard.removeAllListeners('keyboardWillShow');
-      Keyboard.removeAllListeners('keyboardWillHide');
+      showListener?.remove();
+      hideListener?.remove();
     };
   }, [keyboardVerticalOffset, enabled, bottomHeight]);
 
@@ -78,7 +91,6 @@ const KeyboardAvoidingAnimatedView = (props, ref) => {
     const layout = event.nativeEvent.layout;
     animatedViewRef.current = layout;
 
-    // initial height before keybaord appears
     if (!initialHeightRef.current) {
       initialHeightRef.current = layout.height;
     }
@@ -101,23 +113,8 @@ const KeyboardAvoidingAnimatedView = (props, ref) => {
         </Animated.View>
       );
     }
-    // render children if padding or height
     return children;
   };
-
-  // for web, default to unused keyboard avoiding view
-  if (Platform.OS === 'web') {
-    return (
-      <KeyboardAvoidingView
-        behavior={behavior}
-        style={style}
-        contentContainerStyle={contentContainerStyle}
-        {...leftoverProps}
-      >
-        {children}
-      </KeyboardAvoidingView>
-    );
-  }
 
   return (
     <Animated.View

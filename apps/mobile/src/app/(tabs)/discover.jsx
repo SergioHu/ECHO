@@ -5,16 +5,35 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  TextInput,
 } from "react-native";
 import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
-import { MapPin, Clock, DollarSign, ChevronRight } from "lucide-react-native";
+import { 
+  MapPin, 
+  Clock, 
+  DollarSign, 
+  ChevronRight, 
+  Search,
+  Filter,
+  SlidersHorizontal,
+  Zap
+} from "lucide-react-native";
+import QuestionCard from '@/components/ui/QuestionCard';
+import EmptyState from '@/components/ui/EmptyState';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState('all'); // 'all', 'high', 'medium', 'low', 'nearby'
+  const [showFilters, setShowFilters] = useState(false);
 
   // Mock data for now - will be replaced with real data later
   const [questions] = useState([
@@ -137,6 +156,27 @@ export default function DiscoverScreen() {
     }, 1000);
   }, []);
 
+  const filteredQuestions = questions.filter(question => {
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      question.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      question.location.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Urgency filter
+    const matchesFilter = selectedFilter === 'all' ||
+      (selectedFilter === 'nearby' && parseFloat(question.distance.split(' ')[0]) < 1) ||
+      question.urgency === selectedFilter;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  const filterOptions = [
+    { key: 'all', label: 'All Questions', count: questions.length },
+    { key: 'high', label: 'High Priority', count: questions.filter(q => q.urgency === 'high').length },
+    { key: 'nearby', label: 'Nearby (<1mi)', count: questions.filter(q => parseFloat(q.distance.split(' ')[0]) < 1).length },
+    { key: 'medium', label: 'Medium Priority', count: questions.filter(q => q.urgency === 'medium').length },
+  ];
+
   const getUrgencyColor = (urgency) => {
     switch (urgency) {
       case "high":
@@ -169,24 +209,111 @@ export default function DiscoverScreen() {
           borderBottomColor: "#E5E7EB",
         }}
       >
-        <Text
-          style={{
-            fontSize: 28,
-            fontWeight: "bold",
-            color: "#111827",
-          }}
-        >
-          Nearby Questions
-        </Text>
-        <Text
-          style={{
-            fontSize: 16,
-            color: "#6B7280",
-            marginTop: 4,
-          }}
-        >
-          Help others and earn money
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 28,
+                fontWeight: "bold",
+                color: "#111827",
+              }}
+            >
+              Nearby Questions
+            </Text>
+            <Text
+              style={{
+                fontSize: 16,
+                color: "#6B7280",
+                marginTop: 4,
+              }}
+            >
+              {filteredQuestions.length} available
+            </Text>
+          </View>
+          
+          <Button
+            variant="secondary"
+            size="small"
+            icon={<SlidersHorizontal size={16} color="#3B82F6" />}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            Filters
+          </Button>
+        </View>
+        
+        {/* Search Bar */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#F3F4F6',
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          marginBottom: showFilters ? 16 : 0,
+        }}>
+          <Search size={20} color="#6B7280" />
+          <TextInput
+            style={{
+              flex: 1,
+              fontSize: 16,
+              color: '#111827',
+              marginLeft: 12,
+            }}
+            placeholder="Search questions or locations..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+        
+        {/* Filter Chips */}
+        {showFilters && (
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: -16 }}
+            contentContainerStyle={{ paddingRight: 20 }}
+          >
+            {filterOptions.map((filter) => (
+              <TouchableOpacity
+                key={filter.key}
+                onPress={() => setSelectedFilter(filter.key)}
+                style={{
+                  backgroundColor: selectedFilter === filter.key ? '#3B82F6' : '#F3F4F6',
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  marginRight: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: selectedFilter === filter.key ? '#FFFFFF' : '#4B5563',
+                }}>
+                  {filter.label}
+                </Text>
+                <View style={{
+                  marginLeft: 6,
+                  backgroundColor: selectedFilter === filter.key ? 'rgba(255,255,255,0.3)' : '#E5E7EB',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: selectedFilter === filter.key ? '#FFFFFF' : '#6B7280',
+                  }}>
+                    {filter.count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* Questions List */}
@@ -197,148 +324,50 @@ export default function DiscoverScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ padding: 16 }}>
-          {questions.map((question) => (
-            <TouchableOpacity
-              key={question.id}
-              onPress={() => handleQuestionPress(question.id)}
+        {loading ? (
+          <LoadingSpinner 
+            text="Finding nearby questions..."
+            style={{ paddingVertical: 40 }}
+          />
+        ) : filteredQuestions.length === 0 ? (
+          <EmptyState
+            variant="search"
+            title={searchQuery ? "No matching questions" : "No questions nearby"}
+            description={searchQuery 
+              ? "Try adjusting your search or filter settings"
+              : "Be the first to ask a question in this area!"
+            }
+            actionLabel={!searchQuery ? "Ask a Question" : undefined}
+            onAction={!searchQuery ? () => router.push('/ask') : undefined}
+          />
+        ) : (
+          <View style={{ padding: 16 }}>
+            {filteredQuestions.map((question) => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                onPress={(q) => handleQuestionPress(q.id)}
+                showDistance={true}
+              />
+            ))}
+          </View>
+        )}
+
+        {/* Help text */}
+        {filteredQuestions.length > 0 && (
+          <View style={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+            <Text
               style={{
-                backgroundColor: "#fff",
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 12,
-                borderLeftWidth: 4,
-                borderLeftColor: getUrgencyColor(question.urgency),
-                ...Platform.select({
-                  ios: {
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 4,
-                  },
-                  android: {
-                    elevation: 2,
-                  },
-                  web: {
-                    boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.1)",
-                  },
-                }),
+                fontSize: 14,
+                color: "#9CA3AF",
+                textAlign: "center",
+                fontStyle: "italic",
               }}
             >
-              {/* Question Title */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "flex-start",
-                  marginBottom: 8,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "600",
-                    color: "#111827",
-                    lineHeight: 22,
-                    flex: 1,
-                  }}
-                >
-                  {question.title}
-                </Text>
-                <ChevronRight
-                  size={20}
-                  color="#9CA3AF"
-                  style={{ marginLeft: 8, marginTop: 1 }}
-                />
-              </View>
-
-              {/* Location */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  marginBottom: 12,
-                }}
-              >
-                <MapPin size={16} color="#6B7280" />
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#6B7280",
-                    marginLeft: 6,
-                  }}
-                >
-                  {question.location} • {question.distance}
-                </Text>
-              </View>
-
-              {/* Bottom Row */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                {/* Time */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <Clock size={14} color="#6B7280" />
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: "#6B7280",
-                      marginLeft: 4,
-                    }}
-                  >
-                    {question.timeAgo}
-                  </Text>
-                </View>
-
-                {/* Reward */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: "#F0FDF4",
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                  }}
-                >
-                  <DollarSign size={16} color="#16A34A" />
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: "700",
-                      color: "#16A34A",
-                      marginLeft: 2,
-                    }}
-                  >
-                    {question.reward.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Empty state or loading indicator could go here */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-          <Text
-            style={{
-              fontSize: 14,
-              color: "#9CA3AF",
-              textAlign: "center",
-              fontStyle: "italic",
-            }}
-          >
-            Pull down to refresh for new questions
-          </Text>
-        </View>
+              Pull down to refresh for new questions
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

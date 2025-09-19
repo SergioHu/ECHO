@@ -1,6 +1,16 @@
-import { serializeError } from 'serialize-error';
+// Fallback serialization function
+const serializeErrorFallback = (error) => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+  return error;
+};
 
-export const reportErrorToRemote = async ({ error }) => {
+const reportErrorToRemote = async ({ error }) => {
   if (
     !process.env.EXPO_PUBLIC_LOGS_ENDPOINT ||
     !process.env.EXPO_PUBLIC_PROJECT_GROUP_ID ||
@@ -23,7 +33,7 @@ export const reportErrorToRemote = async ({ error }) => {
         projectGroupId: process.env.EXPO_PUBLIC_PROJECT_GROUP_ID,
         logs: [
           {
-            message: JSON.stringify(serializeError(error)),
+            message: JSON.stringify(serializeErrorFallback(error)),
             timestamp: new Date().toISOString(),
             level: 'error',
           },
@@ -35,3 +45,5 @@ export const reportErrorToRemote = async ({ error }) => {
   }
   return { success: true };
 };
+
+module.exports = { reportErrorToRemote };

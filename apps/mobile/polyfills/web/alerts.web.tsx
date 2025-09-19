@@ -7,6 +7,7 @@ import {
 	Animated,
 	TouchableOpacity,
 	TextInput,
+	Platform,
 } from 'react-native';
 
 type AlertButton = {
@@ -165,12 +166,12 @@ export const AlertModal = () => {
 				Animated.timing(opacityAnim, {
 					toValue: 1,
 					duration: 250,
-					useNativeDriver: true,
+					useNativeDriver: Platform.OS !== 'web',
 				}),
 				Animated.timing(scaleAnim, {
 					toValue: 1,
 					duration: 250,
-					useNativeDriver: true,
+					useNativeDriver: Platform.OS !== 'web',
 				}),
 			]).start();
 		};
@@ -223,7 +224,7 @@ export const AlertModal = () => {
 		Animated.timing(opacityAnim, {
 			toValue: 0,
 			duration: 250,
-			useNativeDriver: true,
+			useNativeDriver: Platform.OS !== 'web',
 		}).start(() => {
 			setModalVisible(false);
 			scaleAnim.setValue(1.25);
@@ -443,11 +444,10 @@ const styling = (userInterfaceStyle: string) =>
 			borderRadius: 12,
 			width: 244,
 		},
-		contentContainer: {
-			paddingVertical: 20,
-			paddingHorizontal: 12,
-			gap: 4,
-		},
+	contentContainer: {
+		paddingVertical: 20,
+		paddingHorizontal: 12,
+	},
 		title: {
 			fontSize: 16,
 			fontWeight: '600',

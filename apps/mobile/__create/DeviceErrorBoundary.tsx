@@ -35,7 +35,7 @@ const DeviceErrorBoundary = ({
           : 'It looks like an error occurred while trying to use your app. Please see create.xyz/docs for help'
       }
     >
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: 'row' }}>
         <Button color="primary" onPress={handleReload}>
           Restart app
         </Button>

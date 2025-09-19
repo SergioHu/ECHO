@@ -1,6 +1,6 @@
 import { isErrorLike, serializeError } from 'serialize-error';
 import React, { type ReactNode, useEffect, useState, useCallback, useRef } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { Animated, Text, View, Platform } from 'react-native';
 
 export function SharedErrorBoundary({
   isOpen,
@@ -18,7 +18,7 @@ export function SharedErrorBoundary({
     Animated.timing(animation, {
       toValue: isOpen ? 1 : 0,
       duration: 250,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [isOpen, animation]);
 
@@ -32,7 +32,6 @@ export function SharedErrorBoundary({
 
   return (
     <Animated.View
-      pointerEvents={isOpen ? 'auto' : 'none'}
       style={{
         position: 'absolute',
         bottom: 34,
@@ -46,6 +45,7 @@ export function SharedErrorBoundary({
         justifyContent: 'center',
         left: '5%',
         width: '90%',
+        pointerEvents: isOpen ? 'auto' : 'none',
       }}
     >
       <View
@@ -60,7 +60,7 @@ export function SharedErrorBoundary({
           boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
         }}
       >
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <View style={{ flexShrink: 0 }}>
             <View
               style={{
@@ -76,16 +76,18 @@ export function SharedErrorBoundary({
             </View>
           </View>
 
-          <View style={{ flex: 1, gap: 8 }}>
-            <View style={{ gap: 4 }}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={{}}>
               <Text style={{ color: '#F2F2F2', fontSize: 14, fontWeight: '300' }}>
                 App Error Detected
               </Text>
-              <Text style={{ color: '#959697', fontSize: 14, fontWeight: '300' }}>
+              <Text style={{ color: '#959697', fontSize: 14, fontWeight: '300', marginTop: 4 }}>
                 {description ?? 'It looks like an error occurred while trying to use your app.'}
               </Text>
             </View>
-            {children}
+            <View style={{ marginTop: 8 }}>
+              {children}
+            </View>
           </View>
         </View>
       </View>
@@ -164,15 +166,17 @@ function InternalErrorBoundary({
   }
   return (
     <SharedErrorBoundary isOpen={isOpen}>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
+      <View style={{ flexDirection: 'row' }}>
         {isInIframe() ? (
           <>
             <Button color="primary" onPress={handleFixClick}>
               Try to fix
             </Button>
-            <Button color="secondary" onPress={handleShowLogsClick}>
-              Show logs
-            </Button>
+            <View style={{ marginLeft: 8 }}>
+              <Button color="secondary" onPress={handleShowLogsClick}>
+                Show logs
+              </Button>
+            </View>
           </>
         ) : (
           <Button color="primary" onPress={handleCopyError}>

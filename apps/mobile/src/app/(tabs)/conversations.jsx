@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  TextInput,
 } from "react-native";
 import { useState, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,11 +19,21 @@ import {
   Camera,
   DollarSign,
   ChevronRight,
+  Search,
+  Filter,
 } from "lucide-react-native";
+import QuestionCard from '@/components/ui/QuestionCard';
+import EmptyState from '@/components/ui/EmptyState';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 
 export default function ConversationsScreen() {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('conversations'); // 'conversations', 'available'
 
   // Sample questions available for response
   const [availableQuestions] = useState([
@@ -93,6 +104,19 @@ export default function ConversationsScreen() {
     }, 1000);
   }, []);
 
+  const filteredConversations = conversations.filter(conv => 
+    searchQuery === '' ||
+    conv.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.otherUser.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredAvailableQuestions = availableQuestions.filter(q => 
+    searchQuery === '' ||
+    q.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const getStatusColor = (status) => {
     switch (status) {
       case "answered":
@@ -139,19 +163,84 @@ export default function ConversationsScreen() {
             fontSize: 28,
             fontWeight: "bold",
             color: "#111827",
+            marginBottom: 16,
           }}
         >
           Messages
         </Text>
-        <Text
-          style={{
-            fontSize: 16,
-            color: "#6B7280",
-            marginTop: 4,
-          }}
-        >
-          Your conversations & available questions
-        </Text>
+        
+        {/* Tab Navigation */}
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: '#F3F4F6',
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 16,
+        }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              backgroundColor: activeTab === 'conversations' ? '#FFFFFF' : 'transparent',
+            }}
+            onPress={() => setActiveTab('conversations')}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 14,
+              fontWeight: '600',
+              color: activeTab === 'conversations' ? '#111827' : '#6B7280',
+            }}>
+              Conversations ({filteredConversations.length})
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              borderRadius: 8,
+              backgroundColor: activeTab === 'available' ? '#FFFFFF' : 'transparent',
+            }}
+            onPress={() => setActiveTab('available')}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 14,
+              fontWeight: '600',
+              color: activeTab === 'available' ? '#111827' : '#6B7280',
+            }}>
+              Available ({filteredAvailableQuestions.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Search Bar */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#F3F4F6',
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}>
+          <Search size={20} color="#6B7280" />
+          <TextInput
+            style={{
+              flex: 1,
+              fontSize: 16,
+              color: '#111827',
+              marginLeft: 12,
+            }}
+            placeholder={activeTab === 'conversations' ? "Search conversations..." : "Search available questions..."}
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -161,392 +250,92 @@ export default function ConversationsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Available Questions Section */}
-        {availableQuestions.length > 0 && (
-          <View style={{ padding: 16, paddingBottom: 0 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <Camera size={20} color="#3B82F6" />
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  color: "#111827",
-                  marginLeft: 8,
-                }}
-              >
-                Help Others & Earn
-              </Text>
-            </View>
-
-            {availableQuestions.map((question) => (
-              <TouchableOpacity
-                key={question.id}
-                onPress={() => router.push(`/respond/${question.id}`)}
-                style={{
-                  backgroundColor: "#fff",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 12,
-                  borderWidth: question.urgent ? 2 : 0,
-                  borderColor: question.urgent ? "#F59E0B" : "transparent",
-                  ...Platform.select({
-                    ios: {
-                      shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                    },
-                    android: {
-                      elevation: 2,
-                    },
-                    web: {
-                      boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.1)",
-                    },
-                  }),
-                }}
-              >
-                {question.urgent && (
-                  <View
-                    style={{
-                      backgroundColor: "#FEF3C7",
-                      borderRadius: 6,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      alignSelf: "flex-start",
-                      marginBottom: 8,
+        {loading ? (
+          <LoadingSpinner 
+            text={activeTab === 'conversations' ? "Loading conversations..." : "Loading available questions..."}
+            style={{ paddingVertical: 40 }}
+          />
+        ) : (
+          <View style={{ padding: 16 }}>
+            {activeTab === 'conversations' ? (
+              // Conversations Tab
+              filteredConversations.length === 0 ? (
+                <EmptyState
+                  variant="messages"
+                  title={searchQuery ? "No matching conversations" : "No conversations yet"}
+                  description={searchQuery 
+                    ? "Try adjusting your search query"
+                    : "Start by responding to available questions or ask your own!"
+                  }
+                  actionLabel={!searchQuery ? "Ask a Question" : undefined}
+                  onAction={!searchQuery ? () => router.push('/ask') : undefined}
+                />
+              ) : (
+                filteredConversations.map((conversation) => (
+                  <QuestionCard
+                    key={conversation.id}
+                    question={{
+                      ...conversation,
+                      title: conversation.question,
                     }}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "600",
-                        color: "#92400E",
-                      }}
-                    >
-                      🔥 URGENT
+                    onPress={(conv) => router.push(`/respond/${conv.id}`)}
+                    showUser={true}
+                    showDistance={false}
+                    showStatus={true}
+                    variant="conversation"
+                  />
+                ))
+              )
+            ) : (
+              // Available Questions Tab
+              filteredAvailableQuestions.length === 0 ? (
+                <EmptyState
+                  variant="create"
+                  title={searchQuery ? "No matching questions" : "No questions available"}
+                  description={searchQuery 
+                    ? "Try adjusting your search query"
+                    : "Check back later for new questions to answer!"
+                  }
+                  actionLabel={!searchQuery ? "Ask a Question" : undefined}
+                  onAction={!searchQuery ? () => router.push('/ask') : undefined}
+                />
+              ) : (
+                <View>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 16,
+                    paddingHorizontal: 4,
+                  }}>
+                    <Camera size={20} color="#10B981" />
+                    <Text style={{
+                      fontSize: 18,
+                      fontWeight: 'bold',
+                      color: '#111827',
+                      marginLeft: 8,
+                    }}>
+                      Help Others & Earn
                     </Text>
                   </View>
-                )}
-
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontWeight: "500",
-                    color: "#111827",
-                    marginBottom: 8,
-                    lineHeight: 22,
-                  }}
-                >
-                  {question.question}
-                </Text>
-
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <MapPin size={14} color="#6B7280" />
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: "#6B7280",
-                      marginLeft: 4,
-                      flex: 1,
-                    }}
-                  >
-                    {question.location}
-                  </Text>
-                </View>
-
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <DollarSign size={16} color="#059669" />
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        color: "#059669",
-                        fontWeight: "600",
-                        marginLeft: 2,
-                        marginRight: 16,
+                  
+                  {filteredAvailableQuestions.map((question) => (
+                    <QuestionCard
+                      key={question.id}
+                      question={{
+                        ...question,
+                        title: question.question,
+                        timeAgo: question.postedAt,
+                        urgency: question.urgent ? 'high' : 'medium',
                       }}
-                    >
-                      {question.reward.toFixed(2)}
-                    </Text>
-
-                    <Clock size={14} color="#9CA3AF" />
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        color: "#9CA3AF",
-                        marginLeft: 4,
-                      }}
-                    >
-                      {question.postedAt}
-                    </Text>
-                  </View>
-
-                  <ChevronRight size={20} color="#3B82F6" />
+                      onPress={(q) => router.push(`/respond/${q.id}`)}
+                      showDistance={false}
+                    />
+                  ))}
                 </View>
-              </TouchableOpacity>
-            ))}
+              )
+            )}
           </View>
         )}
-
-        {/* Your Conversations Section */}
-        <View style={{ padding: 16 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
-            <MessageCircle size={20} color="#6B7280" />
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "bold",
-                color: "#111827",
-                marginLeft: 8,
-              }}
-            >
-              Your Conversations
-            </Text>
-          </View>
-
-          {conversations.length === 0 ? (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                paddingVertical: 40,
-              }}
-            >
-              <MessageCircle size={48} color="#9CA3AF" />
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "600",
-                  color: "#6B7280",
-                  marginTop: 16,
-                  textAlign: "center",
-                }}
-              >
-                No conversations yet
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#9CA3AF",
-                  marginTop: 4,
-                  textAlign: "center",
-                }}
-              >
-                Ask a question or help answer one to start chatting
-              </Text>
-            </View>
-          ) : (
-            conversations.map((conversation) => (
-              <TouchableOpacity
-                key={conversation.id}
-                style={{
-                  backgroundColor: "#fff",
-                  borderRadius: 12,
-                  padding: 16,
-                  marginBottom: 12,
-                  ...Platform.select({
-                    ios: {
-                      shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 4,
-                    },
-                    android: {
-                      elevation: 2,
-                    },
-                    web: {
-                      boxShadow: "0px 1px 4px rgba(0, 0, 0, 0.1)",
-                    },
-                  }),
-                }}
-              >
-                {/* Header Row */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: 8,
-                  }}
-                >
-                  <View style={{ flex: 1, marginRight: 12 }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "600",
-                        color:
-                          conversation.type === "seeker"
-                            ? "#3B82F6"
-                            : "#10B981",
-                        marginBottom: 2,
-                      }}
-                    >
-                      {conversation.type === "seeker"
-                        ? "YOUR QUESTION"
-                        : "HELPING OUT"}
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontWeight: "600",
-                        color: "#111827",
-                        lineHeight: 22,
-                      }}
-                    >
-                      {conversation.question}
-                    </Text>
-                  </View>
-
-                  {conversation.unreadCount > 0 && (
-                    <View
-                      style={{
-                        backgroundColor: "#EF4444",
-                        borderRadius: 12,
-                        minWidth: 24,
-                        height: 24,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        paddingHorizontal: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "600",
-                          color: "#fff",
-                        }}
-                      >
-                        {conversation.unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Location */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <MapPin size={14} color="#6B7280" />
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: "#6B7280",
-                      marginLeft: 4,
-                    }}
-                  >
-                    {conversation.location}
-                  </Text>
-                </View>
-
-                {/* Last Message */}
-                <Text
-                  style={{
-                    fontSize: 14,
-                    color: "#374151",
-                    marginBottom: 12,
-                    lineHeight: 20,
-                  }}
-                >
-                  <Text style={{ fontWeight: "500" }}>
-                    {conversation.otherUser}:
-                  </Text>{" "}
-                  {conversation.lastMessage}
-                </Text>
-
-                {/* Bottom Row */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Clock size={12} color="#9CA3AF" />
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: "#9CA3AF",
-                        marginLeft: 4,
-                      }}
-                    >
-                      {conversation.timestamp}
-                    </Text>
-                  </View>
-
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    {/* Status */}
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        backgroundColor: `${getStatusColor(conversation.status)}15`,
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 6,
-                        marginRight: 8,
-                      }}
-                    >
-                      <CheckCircle
-                        size={12}
-                        color={getStatusColor(conversation.status)}
-                      />
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "500",
-                          color: getStatusColor(conversation.status),
-                          marginLeft: 4,
-                        }}
-                      >
-                        {getStatusText(conversation.status)}
-                      </Text>
-                    </View>
-
-                    {/* Reward */}
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "600",
-                        color: "#374151",
-                      }}
-                    >
-                      ${conversation.reward.toFixed(2)}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
       </ScrollView>
     </View>
   );

@@ -9,7 +9,11 @@
 		"ios": {
 			"supportsTablet": true,
 			"infoPlist": {
-				"ITSAppUsesNonExemptEncryption": false
+				"ITSAppUsesNonExemptEncryption": false,
+				"NSCameraUsageDescription": "Echo needs camera access to capture privacy-protected photos with real-time face blurring.",
+				"NSMicrophoneUsageDescription": "Echo needs microphone access for video features.",
+				"NSPhotoLibraryUsageDescription": "Echo needs photo library access to save captured photos.",
+				"NSPhotoLibraryAddUsageDescription": "Echo needs permission to save photos to your library."
 			}
 		},
 		"android": {
@@ -18,10 +22,13 @@
 				"backgroundColor": "#ffffff"
 			},
 			"permissions": [
+				"android.permission.CAMERA",
 				"android.permission.RECORD_AUDIO",
-				"android.permission.MODIFY_AUDIO_SETTINGS"
+				"android.permission.MODIFY_AUDIO_SETTINGS",
+				"android.permission.WRITE_EXTERNAL_STORAGE",
+				"android.permission.READ_EXTERNAL_STORAGE"
 			],
-			"package": "xyz.create.CreateExpoEnvironment"
+			"package": "com.anonymous.echo"
 		},
 		"plugins": [
 			[
@@ -44,10 +51,16 @@
 				{
 					"ios": {
 						"useFrameworks": "static"
+					},
+					"android": {
+						"compileSdkVersion": 34,
+						"targetSdkVersion": 34,
+						"minSdkVersion": 26
 					}
 				}
 			],
-			"expo-video"
+			"expo-video",
+			"./plugins/withVisionCamera"
 		],
 		"web": {
 			"bundler": "metro",

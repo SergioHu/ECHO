@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import RNScrollView from 'react-native-web/dist/exports/ScrollView';
+// Import the original ScrollView implementation directly to avoid alias cycles
+import RNScrollView from 'react-native-web/dist/exports/ScrollView/index.js';
 
 export const ScrollView = React.forwardRef((props, ref) => {
     const extendedStyle = useMemo(() => {
