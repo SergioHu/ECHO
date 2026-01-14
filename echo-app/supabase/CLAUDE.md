@@ -40,6 +40,42 @@
 | **Project Ref** | `dyywmbrxvypnpvuygqub` |
 | **Auth** | OAuth 2.0 (authenticated) |
 
+### GitHub MCP Connection
+
+**Status:** ✅ CONNECTED
+
+```json
+// .mcp.json (project root)
+{
+  "mcpServers": {
+    "supabase": { ... },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "<token>"
+      }
+    }
+  }
+}
+```
+
+| Setting | Value |
+|---------|-------|
+| **MCP Server** | `github` |
+| **Transport** | stdio (npx) |
+| **Repository** | `SergioHu/ECHO` |
+| **Capabilities** | Issues, PRs, Commits, Branches |
+
+### GitHub MCP Usage
+
+```
+"Create a new issue for bug tracking"
+"List open pull requests"
+"Get commit history for main branch"
+"Create a new branch for feature development"
+```
+
 ### Stripe MCP Connection (When Configured)
 
 ```json
@@ -47,6 +83,7 @@
 {
   "mcpServers": {
     "supabase": { ... },
+    "github": { ... },
     "stripe": {
       "type": "http",
       "url": "https://mcp.stripe.com/v1"
