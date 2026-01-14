@@ -1,0 +1,19 @@
+# MCP Configuration (contains service role key)
+.mcp.json
+
+# Claude settings (may contain sensitive data)
+.claude/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+nul
+
+# Binary/large files
+*.tar.gz
+supabase_windows_amd64.exe
