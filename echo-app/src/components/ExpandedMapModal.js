@@ -102,20 +102,6 @@ const ExpandedMapModal = ({ visible, initialLocation, userLocation, onConfirm, o
                     loadingEnabled={true}
                     loadingBackgroundColor={COLORS.background}
                 >
-                    {/* 10 METER RADAR CIRCLE - Same as RadarScreen */}
-                    {userLocation && (
-                        <Circle
-                            center={{
-                                latitude: userLocation.latitude,
-                                longitude: userLocation.longitude,
-                            }}
-                            radius={10}
-                            strokeColor="rgba(0, 229, 255, 0.6)"
-                            strokeWidth={2}
-                            fillColor="rgba(0, 229, 255, 0.05)"
-                        />
-                    )}
-
                     {/* USER LOCATION MARKER - Blue dot (same as RadarScreen) */}
                     {userLocation && (
                         <Marker

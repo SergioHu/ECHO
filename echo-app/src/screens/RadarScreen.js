@@ -373,21 +373,7 @@ const RadarScreen = ({ navigation }) => {
                         rotateEnabled={false}
                         pitchEnabled={false}
                     >
-                        {/* 10 METER RADAR CIRCLE */}
-                        {location && location.coords && (
-                            <Circle
-                                center={{
-                                    latitude: location.coords.latitude,
-                                    longitude: location.coords.longitude,
-                                }}
-                                radius={10}
-                                strokeColor="rgba(0, 229, 255, 0.6)"
-                                strokeWidth={2}
-                                fillColor="rgba(0, 229, 255, 0.05)"
-                            />
-                        )}
-
-                        {/* USER LOCATION MARKER - Blue dot */}
+                        {/* USER LOCATION MARKER */}
                         {location && location.coords && (
                             <Marker
                                 coordinate={{
@@ -403,6 +389,20 @@ const RadarScreen = ({ navigation }) => {
                                     <View style={styles.userLocationDot} />
                                 </View>
                             </Marker>
+                        )}
+
+                        {/* 10M RADIUS CIRCLE - offset compensated */}
+                        {location && location.coords && (
+                            <Circle
+                                center={{
+                                    latitude: location.coords.latitude + 0.000008,
+                                    longitude: location.coords.longitude - 0.000013,
+                                }}
+                                radius={10}
+                                strokeColor="rgba(0, 229, 255, 0.6)"
+                                strokeWidth={2}
+                                fillColor="rgba(0, 229, 255, 0.05)"
+                            />
                         )}
 
                         {/* Note: Mock requests removed - using only Supabase data */}
