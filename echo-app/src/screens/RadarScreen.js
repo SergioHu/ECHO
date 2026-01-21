@@ -23,7 +23,6 @@ const RadarScreen = ({ navigation }) => {
     const [showCreateRequest, setShowCreateRequest] = useState(false);
     const [selectedCoordinates, setSelectedCoordinates] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
-    const [nearbyRequests, setNearbyRequests] = useState([]);
     const [locationName, setLocationName] = useState("Locating...");
     const [isMapMoving, setIsMapMoving] = useState(false);
     const [mapReady, setMapReady] = useState(false);
@@ -82,25 +81,23 @@ const RadarScreen = ({ navigation }) => {
         return () => clearTimeout(timer);
     }, []);
 
-    // Sync Supabase data with local state when available
-    // Note: useNearbyRequests hook already handles real-time optimistic updates via subscription
+    // Debug: Log Supabase data when it changes
     useEffect(() => {
-        if (useSupabaseData && supabaseRequests) {
+        if (supabaseRequests) {
             console.log('🗺️ Supabase nearby requests:', supabaseRequests.length, 'found');
             if (supabaseRequests.length > 0) {
                 console.log('🗺️ First request:', JSON.stringify(supabaseRequests[0]));
             }
-            setNearbyRequests(supabaseRequests);
         }
-    }, [useSupabaseData, supabaseRequests]);
+    }, [supabaseRequests]);
 
     // Debug: log loading state and errors
     useEffect(() => {
         if (supabaseError) {
             console.error('❌ Supabase error in RadarScreen:', supabaseError);
         }
-        console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', nearbyRequests.length, 'location:', location ? 'YES' : 'NO');
-    }, [supabaseLoading, supabaseError, nearbyRequests.length, location]);
+        console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', supabaseRequests?.length || 0, 'location:', location ? 'YES' : 'NO');
+    }, [supabaseLoading, supabaseError, supabaseRequests, location]);
 
     useEffect(() => {
         (async () => {
@@ -285,9 +282,6 @@ const RadarScreen = ({ navigation }) => {
 
         // If it's a Supabase request (has UUID), try to lock it
         if (selectedJob.supabaseId) {
-            // Optimistic update: remove from map immediately
-            setNearbyRequests(prev => prev.filter(r => r.supabaseId !== selectedJob.supabaseId));
-
             const { success, error } = await lockRequest(selectedJob.supabaseId);
 
             if (!success) {
@@ -411,8 +405,8 @@ const RadarScreen = ({ navigation }) => {
 
                         {/* Note: Mock requests removed - using only Supabase data */}
 
-                        {/* NEARBY DYNAMIC REQUESTS */}
-                        {nearbyRequests && nearbyRequests.length > 0 && nearbyRequests.map((req) => {
+                        {/* NEARBY DYNAMIC REQUESTS FROM SUPABASE */}
+                        {supabaseRequests && supabaseRequests.length > 0 && supabaseRequests.map((req) => {
                             const lat = parseFloat(req.lat);
                             const lng = parseFloat(req.lng);
                             // Skip invalid coordinates
