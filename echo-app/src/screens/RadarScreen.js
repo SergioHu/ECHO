@@ -39,7 +39,8 @@ const RadarScreen = ({ navigation }) => {
         requests: supabaseRequests,
         loading: supabaseLoading,
         error: supabaseError,
-        refetch: refetchSupabaseRequests
+        refetch: refetchSupabaseRequests,
+        updateKey: supabaseUpdateKey, // Used to force marker re-renders
     } = useNearbyRequests(
         location?.coords?.latitude,
         location?.coords?.longitude,
@@ -96,8 +97,8 @@ const RadarScreen = ({ navigation }) => {
         if (supabaseError) {
             console.error('❌ Supabase error in RadarScreen:', supabaseError);
         }
-        console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', supabaseRequests?.length || 0, 'location:', location ? 'YES' : 'NO');
-    }, [supabaseLoading, supabaseError, supabaseRequests, location]);
+        console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', supabaseRequests?.length || 0, 'location:', location ? 'YES' : 'NO', 'updateKey:', supabaseUpdateKey);
+    }, [supabaseLoading, supabaseError, supabaseRequests, location, supabaseUpdateKey]);
 
     useEffect(() => {
         (async () => {
@@ -186,12 +187,9 @@ const RadarScreen = ({ navigation }) => {
     const handleConfirmRequest = (payload) => {
         // Check if Supabase creation was successful
         if (payload.supabaseId) {
-            // Request created in Supabase - real-time subscription will add it to map
-            console.log('Request created in Supabase:', payload.supabaseId);
-
-            // Refetch to ensure map is updated (subscription should also trigger)
-            refetchSupabaseRequests();
-
+            // Request created in Supabase - real-time subscription will add it to map automatically
+            // The updateKey mechanism ensures MapView markers re-render
+            console.log('✅ Request created in Supabase:', payload.supabaseId, '- real-time subscription will update map');
             showToast('Request Created!', 'success');
             setShowCreateRequest(false);
             return;
@@ -406,6 +404,7 @@ const RadarScreen = ({ navigation }) => {
                         {/* Note: Mock requests removed - using only Supabase data */}
 
                         {/* NEARBY DYNAMIC REQUESTS FROM SUPABASE */}
+                        {/* updateKey forces re-render when real-time subscription updates data */}
                         {supabaseRequests && supabaseRequests.length > 0 && supabaseRequests.map((req) => {
                             const lat = parseFloat(req.lat);
                             const lng = parseFloat(req.lng);
@@ -414,10 +413,10 @@ const RadarScreen = ({ navigation }) => {
                                 console.warn('⚠️ Invalid coordinates for request:', req.id, req.lat, req.lng);
                                 return null;
                             }
-                            console.log('📍 Rendering marker at:', lat, lng, 'price:', req.price);
+                            console.log('📍 Rendering marker at:', lat, lng, 'price:', req.price, 'updateKey:', supabaseUpdateKey);
                             return (
                                 <Marker
-                                    key={`nearby-${req.id}`}
+                                    key={`nearby-${req.id}-${supabaseUpdateKey}`}
                                     coordinate={{ latitude: lat, longitude: lng }}
                                     onPress={(e) => {
                                         e.stopPropagation();

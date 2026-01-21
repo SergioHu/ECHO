@@ -15,6 +15,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [updateKey, setUpdateKey] = useState(0); // Force re-render trigger for MapView markers
     const { user } = useAuth();
     const currentUserId = user?.id;
 
@@ -101,6 +102,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                         isOwn: req.creator_id === currentUserId,
                     }));
                     setRequests(transformedFallback);
+                    setUpdateKey(k => k + 1);
                     initialFetchDone.current = true;
                     return;
                 }
@@ -155,6 +157,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
             }));
 
             setRequests(transformedData);
+            setUpdateKey(k => k + 1);
             initialFetchDone.current = true;
         } catch (err) {
             console.error('❌ Nearby: Unexpected error:', err);
@@ -197,6 +200,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                     isOwn: req.is_own || false,
                 }));
                 setRequests(transformedData);
+                setUpdateKey(k => k + 1);
             }
         } catch (err) {
             console.error('❌ Nearby: Silent refetch error:', err);
@@ -261,6 +265,8 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                             console.log('📍 Adding new request to map (optimistic):', newReq.id);
                             return [...prev, optimisticRequest];
                         });
+                        // Force MapView marker re-render
+                        setUpdateKey(k => k + 1);
                     } else if (eventType === 'UPDATE' && payload.new) {
                         const updatedReq = payload.new;
                         setRequests(prev => {
@@ -274,9 +280,13 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                                     : req
                             );
                         });
+                        // Force MapView marker re-render
+                        setUpdateKey(k => k + 1);
                     } else if (eventType === 'DELETE' && payload.old?.id) {
                         console.log('📍 Removing from map (deleted):', payload.old.id);
                         setRequests(prev => prev.filter(req => req.id !== payload.old.id));
+                        // Force MapView marker re-render
+                        setUpdateKey(k => k + 1);
                     }
                 }
             )
@@ -304,6 +314,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
         loading,
         error,
         refetch: fetchRequests,
+        updateKey, // Used to force MapView marker re-renders
     };
 };
 
