@@ -1,8 +1,19 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
+
+// Exclude expo-mcp from Metro's file watcher (fixes Windows permission issue)
+config.watcher = {
+  ...config.watcher,
+  additionalExts: config.watcher?.additionalExts || [],
+};
+config.resolver.blockList = [
+  ...(config.resolver.blockList || []),
+  /node_modules[\/\\]\.bin[\/\\]expo-mcp/,
+];
 
 // Fix for @supabase/supabase-js module resolution issues
 config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs'];

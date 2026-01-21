@@ -112,9 +112,17 @@ const CameraJobScreen = ({ navigation, route }) => {
         let headingSubscription = null;
 
         (async () => {
-            // Permissions
+            // Request CAMERA permission FIRST (critical for Android)
+            if (!cameraPermission?.granted) {
+                console.log('📷 Requesting camera permission...');
+                const camResult = await requestCameraPermission();
+                console.log('📷 Camera permission result:', camResult?.granted ? 'GRANTED' : 'DENIED');
+            }
+
+            // Request LOCATION permission
             const locStatus = await Location.requestForegroundPermissionsAsync();
             setLocationPermission(locStatus);
+            console.log('📍 Location permission result:', locStatus.status);
 
             if (locStatus.status === 'granted') {
                 // Get initial position immediately

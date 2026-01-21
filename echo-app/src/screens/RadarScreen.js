@@ -83,6 +83,7 @@ const RadarScreen = ({ navigation }) => {
     }, []);
 
     // Sync Supabase data with local state when available
+    // Note: useNearbyRequests hook already handles real-time optimistic updates via subscription
     useEffect(() => {
         if (useSupabaseData && supabaseRequests) {
             console.log('🗺️ Supabase nearby requests:', supabaseRequests.length, 'found');
@@ -188,9 +189,12 @@ const RadarScreen = ({ navigation }) => {
     const handleConfirmRequest = (payload) => {
         // Check if Supabase creation was successful
         if (payload.supabaseId) {
-            // Request created in Supabase - refetch to show on map
+            // Request created in Supabase - real-time subscription will add it to map
             console.log('Request created in Supabase:', payload.supabaseId);
+
+            // Refetch to ensure map is updated (subscription should also trigger)
             refetchSupabaseRequests();
+
             showToast('Request Created!', 'success');
             setShowCreateRequest(false);
             return;

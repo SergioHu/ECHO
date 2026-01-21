@@ -45,11 +45,33 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ECHO needs access to your camera to take photos for jobs.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "ECHO needs your location to verify you are at the job site.",
+          "locationAlwaysPermission": "ECHO needs your location to find nearby jobs.",
+          "locationWhenInUsePermission": "ECHO needs your location to find nearby jobs and verify photo locations."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "18754202-0db3-49cf-9707-23b2cf6fa1da"
+      }
+    },
+    "owner": "sudosergio"
   }
 }
