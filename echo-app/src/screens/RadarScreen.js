@@ -30,6 +30,7 @@ const RadarScreen = ({ navigation }) => {
     const [testJobs, setTestJobs] = useState([]);
     const [isHybridMap, setIsHybridMap] = useState(false); // false = dark, true = hybrid (satellite)
     const [useSupabaseData, setUseSupabaseData] = useState(true); // Always use Supabase data
+    const [displayRequests, setDisplayRequests] = useState([]); // Local state for forcing marker re-renders
 
     const mapRef = useRef(null);
     const isMarkerPress = useRef(false);
@@ -112,6 +113,15 @@ const RadarScreen = ({ navigation }) => {
             });
         }
     }, [supabaseRequests, supabaseUpdateKey, mapReady]);
+
+    // Sync displayRequests with supabaseRequests to force marker re-renders without destroying MapView
+    useEffect(() => {
+        if (supabaseRequests) {
+            console.log('🔄 Syncing displayRequests:', supabaseRequests.length, 'items, updateKey:', supabaseUpdateKey);
+            // Create new array reference to force re-render
+            setDisplayRequests([...supabaseRequests]);
+        }
+    }, [supabaseRequests, supabaseUpdateKey]);
 
     useEffect(() => {
         (async () => {
@@ -364,7 +374,6 @@ const RadarScreen = ({ navigation }) => {
             <View style={styles.mapContainer}>
                 {currentRegion ? (
                     <MapView
-                        key={`mapview-${supabaseUpdateKey}`}
                         ref={mapRef}
                         provider={PROVIDER_GOOGLE}
                         style={styles.map}
@@ -423,8 +432,8 @@ const RadarScreen = ({ navigation }) => {
                         {/* Note: Mock requests removed - using only Supabase data */}
 
                         {/* NEARBY DYNAMIC REQUESTS FROM SUPABASE */}
-                        {/* updateKey forces re-render when real-time subscription updates data */}
-                        {supabaseRequests && supabaseRequests.length > 0 && supabaseRequests.map((req) => {
+                        {/* displayRequests is synced with supabaseRequests to force re-renders */}
+                        {displayRequests && displayRequests.length > 0 && displayRequests.map((req) => {
                             const lat = parseFloat(req.lat);
                             const lng = parseFloat(req.lng);
                             // Skip invalid coordinates
@@ -432,7 +441,7 @@ const RadarScreen = ({ navigation }) => {
                                 console.warn('⚠️ Invalid coordinates for request:', req.id, req.lat, req.lng);
                                 return null;
                             }
-                            console.log('📍 Rendering marker at:', lat, lng, 'price:', req.price, 'updateKey:', supabaseUpdateKey);
+                            console.log('📍 Rendering marker at:', lat, lng, 'price:', req.price, 'displayCount:', displayRequests.length);
                             return (
                                 <Marker
                                     key={`nearby-${req.id}-${supabaseUpdateKey}`}
