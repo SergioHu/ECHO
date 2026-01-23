@@ -364,6 +364,7 @@ const RadarScreen = ({ navigation }) => {
             <View style={styles.mapContainer}>
                 {currentRegion ? (
                     <MapView
+                        key={`mapview-${supabaseUpdateKey}`}
                         ref={mapRef}
                         provider={PROVIDER_GOOGLE}
                         style={styles.map}
