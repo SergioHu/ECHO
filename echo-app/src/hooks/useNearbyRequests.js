@@ -207,42 +207,32 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
         }
     }, [latitude, longitude, radiusMeters]);
 
-    // Track if subscription is already set up
-    const subscriptionRef = useRef(null);
-    const hasLocationRef = useRef(false);
-
-    // Real-time subscription - STABLE, only set up once when we have location
+    // Real-time subscription - Create IMMEDIATELY on mount, don't wait for location
     useEffect(() => {
-        // Only set up subscription once we have location
-        if (!latitude || !longitude) return;
+        console.log('🔔 Setting up real-time subscription for requests...');
 
-        // Already have subscription? Don't recreate
-        if (hasLocationRef.current && subscriptionRef.current) {
-            return;
-        }
-
-        hasLocationRef.current = true;
-        console.log('🔔 Setting up STABLE real-time subscription for requests...');
-
-        // Use a stable channel name (not Date.now())
-        const channelName = `nearby-requests-${userIdRef.current || 'anon'}`;
+        // Use timestamp to guarantee unique channel name
+        const channelName = `nearby-requests-${Date.now()}`;
 
         const channel = supabase
             .channel(channelName)
             .on(
                 'postgres_changes',
                 {
-                    event: '*',  // Listen to all events (INSERT, UPDATE, DELETE)
+                    event: '*',
                     schema: 'public',
                     table: 'requests',
                 },
                 (payload) => {
-                    const eventType = payload.eventType;
-                    console.log(`📍 Real-time ${eventType} received:`, payload.new?.id || payload.old?.id);
+                    console.log('🚨🚨🚨 REAL-TIME EVENT RECEIVED 🚨🚨🚨');
+                    console.log('📍 Event type:', payload.eventType);
+                    console.log('📍 New data:', JSON.stringify(payload.new));
 
-                    if (eventType === 'INSERT' && payload.new?.status === 'open') {
+                    if (payload.eventType === 'INSERT' && payload.new?.status === 'open') {
                         const newReq = payload.new;
                         const isOwn = userIdRef.current && newReq.creator_id === userIdRef.current;
+
+                        console.log('📍 Processing INSERT - id:', newReq.id, 'isOwn:', isOwn);
 
                         const optimisticRequest = {
                             id: newReq.id,
@@ -257,36 +247,46 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                             creatorId: newReq.creator_id,
                             status: newReq.status,
                             isOwn: isOwn,
-                            distance: isOwn ? 0 : null,
+                            distance: null,
                         };
 
+                        // Use callback function to ensure we have the latest state
                         setRequests(prev => {
-                            if (prev.some(r => r.id === newReq.id)) return prev;
-                            console.log('📍 Adding new request to map (optimistic):', newReq.id);
+                            const exists = prev.some(r => r.id === newReq.id);
+                            if (exists) {
+                                console.log('📍 Request already exists, skipping');
+                                return prev;
+                            }
+                            console.log('📍 ADDING request to state, new count:', prev.length + 1);
                             return [...prev, optimisticRequest];
                         });
-                        // Force MapView marker re-render
-                        setUpdateKey(k => k + 1);
-                    } else if (eventType === 'UPDATE' && payload.new) {
+
+                        // CRITICAL: Increment updateKey AFTER state update with delay
+                        setTimeout(() => {
+                            console.log('📍 Incrementing updateKey to force re-render');
+                            setUpdateKey(k => k + 1);
+                        }, 100);
+
+                    } else if (payload.eventType === 'UPDATE' && payload.new) {
                         const updatedReq = payload.new;
+                        console.log('📍 Processing UPDATE - id:', updatedReq.id, 'status:', updatedReq.status);
+
                         setRequests(prev => {
                             if (updatedReq.status !== 'open') {
-                                console.log('📍 Removing from map (status changed):', updatedReq.id);
+                                console.log('📍 Removing from map (status changed to', updatedReq.status, ')');
                                 return prev.filter(req => req.id !== updatedReq.id);
                             }
                             return prev.map(req =>
-                                req.id === updatedReq.id
-                                    ? { ...req, status: updatedReq.status }
-                                    : req
+                                req.id === updatedReq.id ? { ...req, status: updatedReq.status } : req
                             );
                         });
-                        // Force MapView marker re-render
-                        setUpdateKey(k => k + 1);
-                    } else if (eventType === 'DELETE' && payload.old?.id) {
-                        console.log('📍 Removing from map (deleted):', payload.old.id);
+
+                        setTimeout(() => setUpdateKey(k => k + 1), 100);
+
+                    } else if (payload.eventType === 'DELETE' && payload.old?.id) {
+                        console.log('📍 Processing DELETE - id:', payload.old.id);
                         setRequests(prev => prev.filter(req => req.id !== payload.old.id));
-                        // Force MapView marker re-render
-                        setUpdateKey(k => k + 1);
+                        setTimeout(() => setUpdateKey(k => k + 1), 100);
                     }
                 }
             )
@@ -296,18 +296,16 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                     console.error('🔔 Subscription error:', err);
                 }
                 if (status === 'SUBSCRIBED') {
-                    console.log('✅ Real-time subscription ACTIVE for requests table');
-                    subscriptionRef.current = channel;
+                    console.log('✅✅✅ REALTIME SUBSCRIPTION ACTIVE ✅✅✅');
                 }
             });
 
+        // Cleanup
         return () => {
-            console.log('🔕 Cleaning up nearby requests subscription...');
+            console.log('🔕 Cleaning up subscription');
             supabase.removeChannel(channel);
-            subscriptionRef.current = null;
-            hasLocationRef.current = false;
         };
-    }, [!!latitude && !!longitude]); // Only depends on HAVING location, not exact values
+    }, []); // EMPTY dependency - run once on mount
 
     return {
         requests,

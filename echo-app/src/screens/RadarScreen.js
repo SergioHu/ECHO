@@ -100,6 +100,19 @@ const RadarScreen = ({ navigation }) => {
         console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', supabaseRequests?.length || 0, 'location:', location ? 'YES' : 'NO', 'updateKey:', supabaseUpdateKey);
     }, [supabaseLoading, supabaseError, supabaseRequests, location, supabaseUpdateKey]);
 
+    // Debug: Log when marker data changes (for debugging real-time updates)
+    useEffect(() => {
+        console.log('🗺️🗺️🗺️ MARKER DATA CHANGED 🗺️🗺️🗺️');
+        console.log('🗺️ supabaseRequests count:', supabaseRequests?.length || 0);
+        console.log('🗺️ supabaseUpdateKey:', supabaseUpdateKey);
+        console.log('🗺️ mapReady:', mapReady);
+        if (supabaseRequests && supabaseRequests.length > 0) {
+            supabaseRequests.forEach((req, i) => {
+                console.log(`  📍 [${i}] id=${req.id?.slice(0, 8)}... lat=${req.lat?.toFixed(5)} lng=${req.lng?.toFixed(5)} isOwn=${req.isOwn}`);
+            });
+        }
+    }, [supabaseRequests, supabaseUpdateKey, mapReady]);
+
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
@@ -187,11 +200,16 @@ const RadarScreen = ({ navigation }) => {
     const handleConfirmRequest = (payload) => {
         // Check if Supabase creation was successful
         if (payload.supabaseId) {
-            // Request created in Supabase - real-time subscription will add it to map automatically
-            // The updateKey mechanism ensures MapView markers re-render
-            console.log('✅ Request created in Supabase:', payload.supabaseId, '- real-time subscription will update map');
+            console.log('✅ Request created in Supabase:', payload.supabaseId);
             showToast('Request Created!', 'success');
             setShowCreateRequest(false);
+
+            // FALLBACK: If real-time subscription doesn't work, force refetch after 1 second
+            setTimeout(() => {
+                console.log('🔄 Fallback refetch triggered');
+                refetchSupabaseRequests();
+            }, 1000);
+
             return;
         }
 
