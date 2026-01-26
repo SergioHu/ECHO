@@ -12,6 +12,15 @@ import { useAuth } from '../context/AuthContext';
 const DEFAULT_RADIUS_METERS = 5000; // 5km default
 
 export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RADIUS_METERS) => {
+    // DEBUG: Log dos parâmetros recebidos
+    console.log('🔍 useNearbyRequests called with:', {
+        latitude,
+        longitude,
+        radiusMeters,
+        hasLat: !!latitude,
+        hasLng: !!longitude,
+    });
+
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -37,8 +46,12 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
     }, [latitude, longitude, radiusMeters, currentUserId]);
 
     const fetchRequests = useCallback(async () => {
+        console.log('🔍 fetchRequests called - lat:', latitude, 'lng:', longitude);
+
         if (!latitude || !longitude) {
             console.log('🗺️ Nearby: Skipping fetch - no location yet');
+            console.log('🔍 latitude is:', latitude, '(type:', typeof latitude, ')');
+            console.log('🔍 longitude is:', longitude, '(type:', typeof longitude, ')');
             setLoading(false);
             return;
         }

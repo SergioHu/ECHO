@@ -31,11 +31,25 @@ const RadarScreen = ({ navigation }) => {
     const [isHybridMap, setIsHybridMap] = useState(false); // false = dark, true = hybrid (satellite)
     const [useSupabaseData, setUseSupabaseData] = useState(true); // Always use Supabase data
     const [displayRequests, setDisplayRequests] = useState([]); // Local state for forcing marker re-renders
+    const [stableCoords, setStableCoords] = useState(null); // FIX: Stable coords for useNearbyRequests
 
     const mapRef = useRef(null);
     const isMarkerPress = useRef(false);
 
+    // FIX: Set stable coordinates ONCE when location is first available
+    // This prevents the hook from being called with changing values
+    useEffect(() => {
+        if (location?.coords && !stableCoords) {
+            console.log('📍 Setting stable coordinates:', location.coords.latitude, location.coords.longitude);
+            setStableCoords({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+            });
+        }
+    }, [location, stableCoords]);
+
     // Supabase hook - fetches nearby requests from database
+    // FIX: Use stableCoords instead of location?.coords to prevent re-fetches
     const {
         requests: supabaseRequests,
         loading: supabaseLoading,
@@ -43,8 +57,8 @@ const RadarScreen = ({ navigation }) => {
         refetch: refetchSupabaseRequests,
         updateKey: supabaseUpdateKey, // Used to force marker re-renders
     } = useNearbyRequests(
-        location?.coords?.latitude,
-        location?.coords?.longitude,
+        stableCoords?.latitude,
+        stableCoords?.longitude,
         50000 // 50km radius for testing
     );
 
@@ -636,6 +650,9 @@ const RadarScreen = ({ navigation }) => {
                 </Text>
                 <Text style={{ color: '#fff', fontSize: 10 }}>
                     location: {location ? 'YES' : 'NO'}
+                </Text>
+                <Text style={{ color: '#0ff', fontSize: 10, fontWeight: 'bold' }}>
+                    stableCoords: {stableCoords ? `${stableCoords.latitude.toFixed(5)}, ${stableCoords.longitude.toFixed(5)}` : 'NULL (waiting...)'}
                 </Text>
                 <Text style={{ color: '#fff', fontSize: 10 }}>
                     mapReady: {mapReady ? 'YES' : 'NO'}
