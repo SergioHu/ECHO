@@ -433,7 +433,7 @@ const RadarScreen = ({ navigation }) => {
 
                         {/* NEARBY DYNAMIC REQUESTS FROM SUPABASE */}
                         {/* displayRequests is synced with supabaseRequests to force re-renders */}
-                        {displayRequests && displayRequests.length > 0 && displayRequests.map((req) => {
+                        {displayRequests && displayRequests.length > 0 && displayRequests.map((req, index) => {
                             const lat = parseFloat(req.lat);
                             const lng = parseFloat(req.lng);
                             // Skip invalid coordinates
@@ -441,7 +441,11 @@ const RadarScreen = ({ navigation }) => {
                                 console.warn('⚠️ Invalid coordinates for request:', req.id, req.lat, req.lng);
                                 return null;
                             }
-                            console.log('📍 Rendering marker at:', lat, lng, 'price:', req.price, 'displayCount:', displayRequests.length);
+                            // DEBUG: Log EVERY marker render attempt
+                            console.log('🎯🎯🎯 ATTEMPTING TO RENDER MARKER 🎯🎯🎯');
+                            console.log('🎯 Index:', index, 'ID:', req.id?.slice(0, 8));
+                            console.log('🎯 Coords:', lat.toFixed(5), lng.toFixed(5));
+                            console.log('🎯 Price:', req.price, 'isOwn:', req.isOwn);
                             return (
                                 <Marker
                                     key={`nearby-${req.id}-${supabaseUpdateKey}`}
@@ -467,6 +471,33 @@ const RadarScreen = ({ navigation }) => {
                                 </Marker>
                             );
                         })}
+
+                        {/* DEBUG: HARDCODED TEST MARKER - Should appear slightly north of user location */}
+                        {location && location.coords && (
+                            <Marker
+                                key="test-hardcoded-marker-debug"
+                                coordinate={{
+                                    latitude: location.coords.latitude + 0.0005,
+                                    longitude: location.coords.longitude,
+                                }}
+                                anchor={{ x: 0.5, y: 0.5 }}
+                                tracksViewChanges={true}
+                                zIndex={9999}
+                            >
+                                <View style={{
+                                    width: 60,
+                                    height: 60,
+                                    borderRadius: 30,
+                                    backgroundColor: 'red',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    borderWidth: 3,
+                                    borderColor: 'white',
+                                }}>
+                                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 10 }}>TEST</Text>
+                                </View>
+                            </Marker>
+                        )}
 
                         {/* ADMIN TEST JOBS FROM STORE - Same style as regular jobs */}
                         {testJobs && testJobs.map((job) => (
@@ -588,6 +619,51 @@ const RadarScreen = ({ navigation }) => {
                     </View>
                 );
             })()}
+
+            {/* DEBUG OVERLAY - TEMPORARY */}
+            <View style={{
+                position: 'absolute',
+                top: 120,
+                left: 10,
+                right: 10,
+                backgroundColor: 'rgba(255, 0, 0, 0.9)',
+                padding: 10,
+                borderRadius: 8,
+                zIndex: 9999,
+            }}>
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
+                    🔍 DEBUG OVERLAY
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    location: {location ? 'YES' : 'NO'}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    mapReady: {mapReady ? 'YES' : 'NO'}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    supabaseRequests: {supabaseRequests?.length || 0}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    displayRequests: {displayRequests?.length || 0}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    supabaseUpdateKey: {supabaseUpdateKey}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    supabaseLoading: {supabaseLoading ? 'YES' : 'NO'}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    supabaseError: {supabaseError ? supabaseError.message || 'YES' : 'NO'}
+                </Text>
+                <Text style={{ color: '#fff', fontSize: 10 }}>
+                    currentRegion: {currentRegion ? `${currentRegion.latitude.toFixed(5)}, ${currentRegion.longitude.toFixed(5)}` : 'NULL'}
+                </Text>
+                {displayRequests?.length > 0 && (
+                    <Text style={{ color: '#ff0', fontSize: 10, fontWeight: 'bold' }}>
+                        First job coords: {displayRequests[0].lat?.toFixed(5)}, {displayRequests[0].lng?.toFixed(5)}
+                    </Text>
+                )}
+            </View>
         </View>
     );
 };
