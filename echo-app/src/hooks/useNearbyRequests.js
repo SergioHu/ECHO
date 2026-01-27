@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -222,10 +223,16 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
 
     // Real-time subscription - Create IMMEDIATELY on mount, don't wait for location
     useEffect(() => {
-        console.log('🔔 Setting up real-time subscription for requests...');
+        console.log('');
+        console.log('╔══════════════════════════════════════════════════════════╗');
+        console.log('║  🔔 SETTING UP REALTIME SUBSCRIPTION                     ║');
+        console.log('╚══════════════════════════════════════════════════════════╝');
+        console.log('🔔 This runs ONCE on mount (empty dependency array)');
+        console.log('🔔 Current time:', new Date().toISOString());
 
         // Use timestamp to guarantee unique channel name
         const channelName = `nearby-requests-${Date.now()}`;
+        console.log('🔔 Channel name:', channelName);
 
         const channel = supabase
             .channel(channelName)
@@ -237,15 +244,40 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                     table: 'requests',
                 },
                 (payload) => {
-                    console.log('🚨🚨🚨 REAL-TIME EVENT RECEIVED 🚨🚨🚨');
+                    console.log('');
+                    console.log('╔══════════════════════════════════════════════════════════╗');
+                    console.log('║  🚨🚨🚨 REAL-TIME EVENT RECEIVED 🚨🚨🚨                  ║');
+                    console.log('╚══════════════════════════════════════════════════════════╝');
                     console.log('📍 Event type:', payload.eventType);
-                    console.log('📍 New data:', JSON.stringify(payload.new));
+                    console.log('📍 Payload:', JSON.stringify(payload, null, 2));
+
+                    if (payload.eventType === 'INSERT') {
+                        console.log('');
+                        console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥');
+                        console.log('🔥  INSERT EVENT DETECTED!              🔥');
+                        console.log('🔥  Request ID:', payload.new?.id?.slice(0, 8), '...  🔥');
+                        console.log('🔥  Status:', payload.new?.status, '                   🔥');
+                        console.log('🔥  Expires:', payload.new?.expires_at, '    🔥');
+                        console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥');
+                        console.log('');
+
+                        // DEBUG VISUAL ALERT - Remove after testing
+                        Alert.alert(
+                            '🚨 REALTIME INSERT!',
+                            `ID: ${payload.new?.id?.slice(0, 8)}...\nStatus: ${payload.new?.status}\nExpires: ${payload.new?.expires_at}`,
+                            [{ text: 'OK' }]
+                        );
+                    }
 
                     if (payload.eventType === 'INSERT' && payload.new?.status === 'open') {
                         const newReq = payload.new;
                         const isOwn = userIdRef.current && newReq.creator_id === userIdRef.current;
 
                         console.log('📍 Processing INSERT - id:', newReq.id, 'isOwn:', isOwn);
+                        console.log('📍 Lat:', newReq.latitude, 'Lng:', newReq.longitude);
+                        console.log('📍 Price cents:', newReq.price_cents);
+                        console.log('📍 Creator ID:', newReq.creator_id);
+                        console.log('📍 Current user ID:', userIdRef.current);
 
                         const optimisticRequest = {
                             id: newReq.id,
@@ -304,12 +336,30 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                 }
             )
             .subscribe((status, err) => {
-                console.log('🔔 Subscription status:', status);
+                console.log('');
+                console.log('╔══════════════════════════════════════════════════════════╗');
+                console.log('║  🔔 SUBSCRIPTION STATUS CHANGE                           ║');
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('🔔 Status:', status);
+                console.log('🔔 Channel name:', channelName);
                 if (err) {
-                    console.error('🔔 Subscription error:', err);
+                    console.error('🔔 Subscription ERROR:', err);
+                    Alert.alert('Subscription Error', JSON.stringify(err));
                 }
                 if (status === 'SUBSCRIBED') {
-                    console.log('✅✅✅ REALTIME SUBSCRIPTION ACTIVE ✅✅✅');
+                    console.log('');
+                    console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
+                    console.log('✅  REALTIME SUBSCRIPTION IS NOW ACTIVE!             ✅');
+                    console.log('✅  Listening for INSERT/UPDATE/DELETE on requests   ✅');
+                    console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
+                    console.log('');
+                }
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('❌❌❌ CHANNEL ERROR - Realtime may not work! ❌❌❌');
+                    Alert.alert('Channel Error', 'Realtime subscription failed!');
+                }
+                if (status === 'TIMED_OUT') {
+                    console.error('⏰⏰⏰ SUBSCRIPTION TIMED OUT ⏰⏰⏰');
                 }
             });
 

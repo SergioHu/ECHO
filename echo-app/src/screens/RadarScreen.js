@@ -230,7 +230,12 @@ const RadarScreen = ({ navigation }) => {
 
             // FALLBACK: If real-time subscription doesn't work, force refetch after 1 second
             setTimeout(() => {
-                console.log('🔄 Fallback refetch triggered');
+                console.log('');
+                console.log('╔══════════════════════════════════════════════════════════╗');
+                console.log('║  🔄🔄🔄 FALLBACK REFETCH TRIGGERED 🔄🔄🔄               ║');
+                console.log('╚══════════════════════════════════════════════════════════╝');
+                console.log('🔄 Current supabaseRequests count:', supabaseRequests?.length || 0);
+                console.log('🔄 Calling refetchSupabaseRequests()...');
                 refetchSupabaseRequests();
             }, 1000);
 
