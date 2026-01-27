@@ -48,6 +48,14 @@ const RadarScreen = ({ navigation }) => {
         }
     }, [location, stableCoords]);
 
+    // FIX: Trigger initial fetch as soon as stableCoords is available
+    useEffect(() => {
+        if (stableCoords) {
+            console.log('📍 stableCoords set, triggering initial fetch...');
+            refetchSupabaseRequests();
+        }
+    }, [stableCoords]);
+
     // Supabase hook - fetches nearby requests from database
     // FIX: Use stableCoords instead of location?.coords to prevent re-fetches
     const {
@@ -491,32 +499,7 @@ const RadarScreen = ({ navigation }) => {
                             );
                         })}
 
-                        {/* DEBUG: HARDCODED TEST MARKER - Should appear slightly north of user location */}
-                        {location && location.coords && (
-                            <Marker
-                                key="test-hardcoded-marker-debug"
-                                coordinate={{
-                                    latitude: location.coords.latitude + 0.0005,
-                                    longitude: location.coords.longitude,
-                                }}
-                                anchor={{ x: 0.5, y: 0.5 }}
-                                tracksViewChanges={true}
-                                zIndex={9999}
-                            >
-                                <View style={{
-                                    width: 60,
-                                    height: 60,
-                                    borderRadius: 30,
-                                    backgroundColor: 'red',
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                    borderWidth: 3,
-                                    borderColor: 'white',
-                                }}>
-                                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 10 }}>TEST</Text>
-                                </View>
-                            </Marker>
-                        )}
+                        {/* DEBUG TEST MARKER - REMOVED */}
 
                         {/* ADMIN TEST JOBS FROM STORE - Same style as regular jobs */}
                         {testJobs && testJobs.map((job) => (
@@ -639,53 +622,7 @@ const RadarScreen = ({ navigation }) => {
                 );
             })()}
 
-            {/* DEBUG OVERLAY - TEMPORARY */}
-            <View style={{
-                position: 'absolute',
-                top: 120,
-                left: 10,
-                right: 10,
-                backgroundColor: 'rgba(255, 0, 0, 0.9)',
-                padding: 10,
-                borderRadius: 8,
-                zIndex: 9999,
-            }}>
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
-                    🔍 DEBUG OVERLAY
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    location: {location ? 'YES' : 'NO'}
-                </Text>
-                <Text style={{ color: '#0ff', fontSize: 10, fontWeight: 'bold' }}>
-                    stableCoords: {stableCoords ? `${stableCoords.latitude.toFixed(5)}, ${stableCoords.longitude.toFixed(5)}` : 'NULL (waiting...)'}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    mapReady: {mapReady ? 'YES' : 'NO'}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    supabaseRequests: {supabaseRequests?.length || 0}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    displayRequests: {displayRequests?.length || 0}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    supabaseUpdateKey: {supabaseUpdateKey}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    supabaseLoading: {supabaseLoading ? 'YES' : 'NO'}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    supabaseError: {supabaseError ? supabaseError.message || 'YES' : 'NO'}
-                </Text>
-                <Text style={{ color: '#fff', fontSize: 10 }}>
-                    currentRegion: {currentRegion ? `${currentRegion.latitude.toFixed(5)}, ${currentRegion.longitude.toFixed(5)}` : 'NULL'}
-                </Text>
-                {displayRequests?.length > 0 && (
-                    <Text style={{ color: '#ff0', fontSize: 10, fontWeight: 'bold' }}>
-                        First job coords: {displayRequests[0].lat?.toFixed(5)}, {displayRequests[0].lng?.toFixed(5)}
-                    </Text>
-                )}
-            </View>
+            {/* DEBUG OVERLAY - REMOVED (keeping logs in code for now) */}
         </View>
     );
 };

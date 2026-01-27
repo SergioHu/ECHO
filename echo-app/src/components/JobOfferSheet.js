@@ -46,13 +46,15 @@ const JobOfferSheet = ({ job, distance, onClose, onAccept, canAccept = true }) =
                     <Text style={styles.priceValue}>{formatPrice(job.price)}</Text>
                 </View>
 
-                {/* Warning */}
-                <View style={styles.warningContainer}>
-                    <Ionicons name="alert-circle-outline" size={16} color="#FF3B3B" />
-                    <Text style={styles.warningText}>
-                        You must be within 10m to submit the photo
-                    </Text>
-                </View>
+                {/* Warning - Only show when NOT within 10m */}
+                {!canAccept && (
+                    <View style={styles.warningContainer}>
+                        <Ionicons name="alert-circle-outline" size={16} color="#FF3B3B" />
+                        <Text style={styles.warningText}>
+                            You must be within 10m to submit the photo
+                        </Text>
+                    </View>
+                )}
 
                 {/* Action Button */}
                 <Pressable
