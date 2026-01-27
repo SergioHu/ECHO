@@ -44,10 +44,19 @@ export const useCreateRequest = () => {
             setLoading(true);
             setError(null);
 
-            console.log(`📍 Creating request at: (${latitude}, ${longitude})`);
+            console.log('');
+            console.log('╔══════════════════════════════════════════════════════════╗');
+            console.log('║  🔧 useCreateRequest - CALLING RPC                       ║');
+            console.log('╚══════════════════════════════════════════════════════════╝');
+            console.log(`🔧 Creating request at: (${latitude}, ${longitude})`);
+            console.log('🔧 User ID:', user.id);
+            console.log('🔧 Location name:', locationName);
+            console.log('🔧 Description:', description);
+            console.log('🔧 Price cents:', priceCents);
+            console.log('🔧 Category:', category);
 
             // Use the RPC function that properly handles PostGIS geography
-            const { data: requestId, error: rpcError } = await supabase.rpc('create_request', {
+            const rpcParams = {
                 p_creator_id: user.id,
                 p_latitude: latitude,
                 p_longitude: longitude,
@@ -55,15 +64,24 @@ export const useCreateRequest = () => {
                 p_description: description || null,
                 p_price_cents: priceCents,
                 p_category: category,
-            });
+            };
+            console.log('🔧 RPC params:', JSON.stringify(rpcParams, null, 2));
+
+            const { data: requestId, error: rpcError } = await supabase.rpc('create_request', rpcParams);
+
+            console.log('🔧 RPC response - requestId:', requestId);
+            console.log('🔧 RPC response - error:', rpcError);
 
             if (rpcError) {
-                console.error('❌ Error creating request:', rpcError);
+                console.error('❌ RPC Error creating request:', rpcError);
+                console.error('❌ Error code:', rpcError.code);
+                console.error('❌ Error message:', rpcError.message);
+                console.error('❌ Error details:', rpcError.details);
                 setError(rpcError);
                 return { error: rpcError };
             }
 
-            console.log('✅ Request created with ID:', requestId);
+            console.log('✅ RPC SUCCESS! Request ID:', requestId);
 
             // Fetch the created request to return full data
             const { data, error: fetchError } = await supabase
