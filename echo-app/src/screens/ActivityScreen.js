@@ -50,22 +50,9 @@ const ActivityScreen = () => {
     // Auto-refresh when screen comes into focus (real-time updates)
     useFocusEffect(
         useCallback(() => {
-            console.log('🔄 Activity screen focused - refreshing data...');
             refetchActivity();
         }, [refetchActivity])
     );
-
-    // Debug: log Supabase data
-    useEffect(() => {
-        console.log('📋 Activity - Supabase Requests:', supabaseRequests?.length || 0);
-        console.log('📋 Activity - Supabase Jobs:', supabaseJobs?.length || 0);
-        if (supabaseRequests?.length > 0) {
-            console.log('📋 First request:', JSON.stringify(supabaseRequests[0]));
-        }
-        if (supabaseJobs?.length > 0) {
-            console.log('📋 First job:', JSON.stringify(supabaseJobs[0]));
-        }
-    }, [supabaseRequests, supabaseJobs]);
 
     // Sync local timers with backend state
     // When backend has NULL session (admin reset), clear local timer cache
@@ -82,7 +69,6 @@ const ActivityScreen = () => {
             // If backend says session not started (NULL) but we have local timer, clear it
             // This happens when admin resets/approves a photo
             if (!backendSessionStarted && localExpiry) {
-                console.log('🔄 Syncing timer: Backend reset detected for', timerId, '- clearing local cache');
                 clearTimer(timerId);
                 // Also clear from expired set if present
                 setExpiredJobs(prev => {
@@ -554,10 +540,6 @@ const ActivityScreen = () => {
 
     return (
         <ScreenWrapper>
-            {/* TEMP DEBUG MARKER — remove after confirming fix works */}
-            <Text style={{color:'red',fontSize:13,fontWeight:'bold',textAlign:'center',backgroundColor:'rgba(0,0,0,0.5)',padding:2}}>
-                BUILD-0f263a8
-            </Text>
             <Text style={styles.headerTitle}>Activity</Text>
 
             {/* Segmented Control / Tabs */}

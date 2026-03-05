@@ -152,18 +152,10 @@ export const useMyActivity = () => {
                         };
                     })
                 );
-                // Log requests with photos for debugging
-                const requestsWithPhotos = transformedRequests.filter(r => r.hasPhoto);
-                console.log(`📋 My Requests: ${transformedRequests.length} total, ${requestsWithPhotos.length} with photos`);
-                requestsWithPhotos.forEach((r, i) => {
-                    console.log(`📷 Request ${i + 1}: id=${r.id}, status=${r.status}, hasPhoto=${r.hasPhoto}, photoUrl=${r.photoUrl ? 'YES' : 'NO'}`);
-                });
-
                 setMyRequests(transformedRequests);
             }
 
             // Fetch jobs completed by user (as agent) - include photo status and disputes
-            console.log('📷 Fetching photos where agent_id =', user.id);
             const { data: jobsData, error: jobsError } = await supabase
                 .from('photos')
                 .select(`
@@ -188,11 +180,6 @@ export const useMyActivity = () => {
                 `)
                 .eq('agent_id', user.id)
                 .order('created_at', { ascending: false });
-
-            console.log('📷 Photos query result:', { count: jobsData?.length || 0, error: jobsError?.message });
-            if (jobsData?.length > 0) {
-                console.log('📷 First photo:', JSON.stringify(jobsData[0], null, 2));
-            }
 
             if (jobsError) {
                 console.error('Error fetching my jobs:', jobsError);
@@ -220,12 +207,6 @@ export const useMyActivity = () => {
                             d.status?.includes('resolved')
                         )
                     );
-
-                    // Debug logging for rejection feedback
-                    if (photo.status === 'rejected') {
-                        console.log('📋 Rejected photo found:', photo.id, 'disputes:', photo.disputes);
-                        console.log('📋 Resolved dispute:', resolvedDispute);
-                    }
 
                     // Determine display status
                     let displayStatus = photo.request?.status || 'completed';
@@ -267,8 +248,6 @@ export const useMyActivity = () => {
     useEffect(() => {
         if (!user?.id) return;
 
-        console.log('🔔 Setting up real-time subscription for activity...');
-
         // Subscribe to changes in requests table where user is creator
         const requestsChannel = supabase
             .channel('my-requests-changes')
@@ -281,8 +260,6 @@ export const useMyActivity = () => {
                     filter: `creator_id=eq.${user.id}`,
                 },
                 (payload) => {
-                    console.log('📥 Request update received:', payload.eventType, payload.new?.id || payload.old?.id);
-                    // Refetch to get updated data with signed URLs
                     fetchActivity();
                 }
             )
@@ -299,15 +276,12 @@ export const useMyActivity = () => {
                     table: 'photos',
                 },
                 (payload) => {
-                    console.log('📸 New photo received:', payload.new?.id);
-                    // Refetch to get the new photo with signed URL
                     fetchActivity();
                 }
             )
             .subscribe();
 
         return () => {
-            console.log('🔕 Cleaning up real-time subscriptions...');
             supabase.removeChannel(requestsChannel);
             supabase.removeChannel(photosChannel);
         };

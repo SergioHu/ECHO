@@ -121,15 +121,12 @@ const CameraJobScreen = ({ navigation, route }) => {
         (async () => {
             // Request CAMERA permission FIRST (critical for Android)
             if (!cameraPermission?.granted) {
-                console.log('📷 Requesting camera permission...');
-                const camResult = await requestCameraPermission();
-                console.log('📷 Camera permission result:', camResult?.granted ? 'GRANTED' : 'DENIED');
+                await requestCameraPermission();
             }
 
             // Request LOCATION permission
             const locStatus = await Location.requestForegroundPermissionsAsync();
             setLocationPermission(locStatus);
-            console.log('📍 Location permission result:', locStatus.status);
 
             if (locStatus.status === 'granted') {
                 // Get initial position immediately
@@ -143,9 +140,8 @@ const CameraJobScreen = ({ navigation, route }) => {
                     };
                     setUserLocation(locData);
                     userLocationRef.current = locData; // Store in ref
-                    console.log('📍 Initial location set:', locData.latitude, locData.longitude);
                 } catch (e) {
-                    console.log('⚠️ Could not get initial location:', e);
+                    console.error('[CameraJobScreen] Could not get initial location:', e);
                 }
 
                 // A. Watch Position for updates
@@ -328,7 +324,6 @@ const CameraJobScreen = ({ navigation, route }) => {
 
                 // If no location available, try to get it now
                 if (!currentLocation) {
-                    console.log('📍 No location in state, getting fresh location...');
                     try {
                         const freshLoc = await Location.getCurrentPositionAsync({
                             accuracy: Location.Accuracy.High,
@@ -337,22 +332,12 @@ const CameraJobScreen = ({ navigation, route }) => {
                             latitude: freshLoc.coords.latitude,
                             longitude: freshLoc.coords.longitude,
                         };
-                        console.log('📍 Got fresh location:', currentLocation);
                     } catch (locErr) {
-                        console.error('❌ Failed to get location:', locErr);
+                        console.error('[CameraJobScreen] Failed to get location:', locErr);
                     }
                 }
 
-                // If it's a Supabase job, submit to backend
-                console.log('📷 About to submit photo:', {
-                    supabaseId: job.supabaseId,
-                    userLocation: currentLocation,
-                    hasSupabaseId: !!job.supabaseId,
-                    hasUserLocation: !!currentLocation
-                });
-
                 if (job.supabaseId && currentLocation) {
-                    console.log('📷 Submitting to Supabase...');
                     const { data, error } = await submitPhoto({
                         requestId: job.supabaseId,
                         photoUri: photo.uri,
@@ -361,15 +346,12 @@ const CameraJobScreen = ({ navigation, route }) => {
                     });
 
                     if (error) {
-                        console.error('❌ Supabase photo submission failed:', error);
+                        console.error('[CameraJobScreen] Photo submission failed:', error);
                         showToast('Upload failed - saved locally', 'error');
-                        // Continue with local save as fallback
                     } else {
-                        console.log('✅ Photo submitted to Supabase:', data);
                         showToast('Photo Submitted!', 'success');
                     }
                 } else {
-                    console.log('⚠️ Skipping Supabase - missing supabaseId or userLocation');
                     showToast('Location unavailable - try again', 'error');
                 }
 
@@ -404,11 +386,6 @@ const CameraJobScreen = ({ navigation, route }) => {
         <View style={styles.container}>
             {/* Camera View */}
             <CameraView style={styles.camera} ref={cameraRef} facing="back" />
-
-            {/* TEMP DEBUG MARKER — remove after confirming fix works */}
-            <Text style={{position:'absolute',top:10,right:10,color:'red',fontSize:16,fontWeight:'bold',zIndex:9999,backgroundColor:'rgba(0,0,0,0.7)',padding:4}}>
-                {'BUILD-0f263a8 | id:' + (job.supabaseId ? job.supabaseId.slice(0,8) : 'NULL')}
-            </Text>
 
             {/* Close Button - Top Left */}
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
