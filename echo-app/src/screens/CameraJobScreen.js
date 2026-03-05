@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Animated } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -270,19 +270,31 @@ const CameraJobScreen = ({ navigation, route }) => {
         }
     }, [isAligned]);
 
-    // Release the locked job when screen unmounts without a submitted photo.
-    // useEffect cleanup fires on ANY unmount (back button, close button, navigate away)
-    // and is more reliable than beforeRemove with the JS stack navigator.
+    // Release the locked job when agent leaves without submitting a photo.
+    // beforeRemove fires for ALL navigation actions that remove this screen (back gesture,
+    // hardware back, close button). We prevent the navigation, await the RPC, then dispatch.
     useEffect(() => {
-        return () => {
-            if (supabaseIdRef.current && !photoSubmittedRef.current) {
-                Alert.alert('DEBUG UNLOCK', 'Releasing job: ' + supabaseIdRef.current);
-                supabase.rpc('unlock_request', { p_request_id: supabaseIdRef.current });
-            } else {
-                Alert.alert('DEBUG NO UNLOCK', 'submitted=' + photoSubmittedRef.current + ' id=' + supabaseIdRef.current);
+        const unsubscribe = navigation.addListener('beforeRemove', async (e) => {
+            if (!supabaseIdRef.current || photoSubmittedRef.current) {
+                // No job to unlock, or photo already submitted — let navigation proceed
+                return;
             }
-        };
-    }, []); // empty deps — only the cleanup matters
+
+            // Pause navigation until unlock completes
+            e.preventDefault();
+
+            try {
+                await supabase.rpc('unlock_request', { p_request_id: supabaseIdRef.current });
+            } catch (err) {
+                console.error('[CameraJobScreen] unlock_request failed:', err);
+            }
+
+            // Resume the original navigation action
+            navigation.dispatch(e.data.action);
+        });
+
+        return unsubscribe;
+    }, [navigation]);
 
     // 3. Handle Permissions UI
     if (!cameraPermission || !locationPermission) {

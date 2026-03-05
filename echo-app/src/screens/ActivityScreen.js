@@ -324,8 +324,10 @@ const ActivityScreen = () => {
                             </View>
                         )}
 
-                        {/* Admin Resolution Notes - show when dispute was resolved (even if timer expired) */}
-                        {(disputeApproved || disputeRejected) && disputeResolutionNotes && !isPhotoRejected && (
+                        {/* Admin Resolution Notes - show when dispute was resolved (even if timer expired).
+                            Hidden when a valid photo is present — requester has their photo, the old
+                            rejection feedback is irrelevant and confusing. */}
+                        {(disputeApproved || disputeRejected) && disputeResolutionNotes && !isPhotoRejected && !hasPhoto && (
                             <View style={styles.adminNotesContainer}>
                                 <View style={styles.adminNotesHeader}>
                                     <Ionicons name="chatbubble-ellipses" size={14} color={COLORS.textSecondary} />
