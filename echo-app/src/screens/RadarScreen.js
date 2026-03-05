@@ -34,6 +34,7 @@ const RadarScreen = ({ navigation }) => {
     const {
         requests: supabaseRequests,
         refetch: refetchSupabaseRequests,
+        silentRefetch: silentRefetchRequests,
     } = useNearbyRequests(
         location?.coords?.latitude,
         location?.coords?.longitude,
@@ -59,10 +60,12 @@ const RadarScreen = ({ navigation }) => {
     }, []);
 
     // Auto-refresh when map screen comes into focus
+    // Use silentRefetch to bypass coord dedup — ensures fresh data after returning
+    // from CameraJobScreen (coords unchanged, but DB state may have changed)
     useFocusEffect(
         useCallback(() => {
-            refetchSupabaseRequests();
-        }, [refetchSupabaseRequests])
+            silentRefetchRequests();
+        }, [silentRefetchRequests])
     );
 
     useEffect(() => {

@@ -255,6 +255,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
         loading,
         error,
         refetch: fetchRequests,
+        silentRefetch, // bypass coord dedup — use for useFocusEffect
     };
 };
 
