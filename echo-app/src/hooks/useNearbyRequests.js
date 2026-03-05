@@ -1,70 +1,55 @@
 /**
  * useNearbyRequests - Hook to fetch nearby requests from Supabase
- * 
+ *
  * Uses the get_nearby_requests RPC function to fetch requests
  * within a specified radius of the user's location.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_RADIUS_METERS = 5000; // 5km default
 
 export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RADIUS_METERS) => {
-    // DEBUG: Log dos parâmetros recebidos
-    console.log('🔍 useNearbyRequests called with:', {
-        latitude,
-        longitude,
-        radiusMeters,
-        hasLat: !!latitude,
-        hasLng: !!longitude,
-    });
-
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [updateKey, setUpdateKey] = useState(0); // Force re-render trigger for MapView markers
     const { user } = useAuth();
     const currentUserId = user?.id;
 
-    // Track if initial fetch is done to avoid showing loading on real-time updates
-    const initialFetchDone = useRef(false);
+    // Track previous coords to avoid redundant fetches when the value hasn't changed
+    const prevCoordsRef = useRef({ latitude: null, longitude: null });
 
     // Store refs for values needed in subscription callbacks
-    const latRef = useRef(latitude);
-    const lngRef = useRef(longitude);
-    const radiusRef = useRef(radiusMeters);
     const userIdRef = useRef(currentUserId);
 
-    // Keep refs updated
     useEffect(() => {
-        latRef.current = latitude;
-        lngRef.current = longitude;
-        radiusRef.current = radiusMeters;
         userIdRef.current = currentUserId;
-    }, [latitude, longitude, radiusMeters, currentUserId]);
+    }, [currentUserId]);
 
     const fetchRequests = useCallback(async () => {
-        console.log('🔍 fetchRequests called - lat:', latitude, 'lng:', longitude);
-
         if (!latitude || !longitude) {
-            console.log('🗺️ Nearby: Skipping fetch - no location yet');
-            console.log('🔍 latitude is:', latitude, '(type:', typeof latitude, ')');
-            console.log('🔍 longitude is:', longitude, '(type:', typeof longitude, ')');
             setLoading(false);
             return;
         }
+
+        // Skip fetch if coordinates haven't meaningfully changed (> 1 meter threshold)
+        const prev = prevCoordsRef.current;
+        if (
+            prev.latitude !== null &&
+            Math.abs(prev.latitude - latitude) < 0.00001 &&
+            Math.abs(prev.longitude - longitude) < 0.00001 &&
+            prev.radius === radiusMeters
+        ) {
+            return;
+        }
+        prevCoordsRef.current = { latitude, longitude, radius: radiusMeters };
 
         try {
             setLoading(true);
             setError(null);
 
-            console.log(`🗺️ Nearby: Fetching requests at (${latitude.toFixed(5)}, ${longitude.toFixed(5)}) radius=${radiusMeters}m`);
-
-            // Call the RPC function we created in migration 009
-            // Parameter names must match the SQL function: p_latitude, p_longitude, p_radius_meters
             const { data, error: rpcError } = await supabase.rpc('get_nearby_requests', {
                 p_latitude: latitude,
                 p_longitude: longitude,
@@ -72,121 +57,71 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
             });
 
             if (rpcError) {
-                console.error('❌ Nearby: RPC Error:', rpcError.message, rpcError.code, rpcError.details);
-                console.error('❌ Full error:', JSON.stringify(rpcError, null, 2));
+                console.error('[useNearbyRequests] RPC error:', rpcError.message);
 
-                // IMPORTANT: The RPC error likely means migration 00025 hasn't been applied
-                // The get_nearby_requests function needs to return: status TEXT and is_own BOOLEAN
-                console.log('⚠️ RPC failed - this usually means the SQL migration needs to be applied!');
-                console.log('⚠️ Please run migration: 00025_fix_get_nearby_requests.sql');
-
-                // Fallback: try direct query if RPC fails
-                console.log('🔄 Trying fallback direct query...');
+                // Fallback: direct table query without expires_at filter (RPC handles that)
                 const { data: fallbackData, error: fallbackError } = await supabase
                     .from('requests')
                     .select('id, latitude, longitude, location_name, description, category, price_cents, status, created_at, expires_at, creator_id')
-                    .eq('status', 'open');
+                    .eq('status', 'open')
+                    .gt('expires_at', new Date().toISOString());
 
                 if (fallbackError) {
-                    console.error('❌ Fallback query also failed:', fallbackError);
+                    console.error('[useNearbyRequests] Fallback query failed:', fallbackError.message);
                     setError(rpcError);
                     return;
                 }
 
-                console.log(`✅ Fallback: Found ${fallbackData?.length || 0} open requests`);
-                if (fallbackData?.length > 0) {
-                    fallbackData.forEach((req, i) => {
-                        console.log(`📍 Fallback ${i + 1}: id=${req.id?.slice(0, 8)}... status=${req.status} expires=${req.expires_at} isOwn=${req.creator_id === currentUserId}`);
-                    });
-
-                    // Transform fallback data
-                    const transformedFallback = fallbackData.map(req => ({
-                        id: req.id,
-                        supabaseId: req.id,
-                        lat: parseFloat(req.latitude),
-                        lng: parseFloat(req.longitude),
-                        price: req.price_cents / 100,
-                        title: req.location_name || req.description || 'Photo Request',
-                        description: req.description || '',
-                        urgent: req.category === 'urgent' || req.price_cents >= 200,
-                        distance: null,
-                        createdAt: req.created_at,
-                        creatorId: req.creator_id,
-                        status: req.status,
-                        isOwn: req.creator_id === currentUserId,
-                    }));
-                    setRequests(transformedFallback);
-                    setUpdateKey(k => k + 1);
-                    initialFetchDone.current = true;
-                    return;
-                }
-
-                setError(rpcError);
+                const transformedFallback = (fallbackData || []).map(req => ({
+                    id: req.id,
+                    supabaseId: req.id,
+                    lat: parseFloat(req.latitude),
+                    lng: parseFloat(req.longitude),
+                    price: req.price_cents / 100,
+                    title: req.location_name || req.description || 'Photo Request',
+                    description: req.description || '',
+                    urgent: req.category === 'urgent' || req.price_cents >= 200,
+                    distance: null,
+                    createdAt: req.created_at,
+                    creatorId: req.creator_id,
+                    status: req.status,
+                    isOwn: req.creator_id === currentUserId,
+                }));
+                setRequests(transformedFallback);
                 return;
             }
 
-            console.log(`✅ Nearby: Found ${data?.length || 0} requests from Supabase`);
-            if (data?.length > 0) {
-                console.log('📍 First request:', data[0].id, 'at', data[0].latitude, data[0].longitude, 'distance:', data[0].distance_meters, 'm', 'is_own:', data[0].is_own);
-                // Log all requests for debugging
-                data.forEach((req, i) => {
-                    console.log(`📍 Request ${i + 1}: id=${req.id?.slice(0, 8)}... lat=${req.latitude} lng=${req.longitude} is_own=${req.is_own} status=${req.status}`);
-                });
-            } else {
-                console.log('⚠️ Nearby: RPC returned empty. Checking raw requests table...');
-
-                // Debug: Check what's in the requests table
-                const { data: debugData, error: debugError } = await supabase
-                    .from('requests')
-                    .select('id, status, expires_at, creator_id')
-                    .eq('status', 'open')
-                    .limit(10);
-
-                if (debugData?.length > 0) {
-                    console.log(`📊 Debug: Found ${debugData.length} open requests in table:`);
-                    debugData.forEach((req, i) => {
-                        const isExpired = req.expires_at && new Date(req.expires_at) < new Date();
-                        console.log(`   ${i + 1}. id=${req.id?.slice(0, 8)}... expires=${req.expires_at} expired=${isExpired} isOwn=${req.creator_id === currentUserId}`);
-                    });
-                } else {
-                    console.log('⚠️ Debug: No open requests found in table');
-                }
-            }
-
-            // Transform data to match the format expected by RadarScreen
             const transformedData = (data || []).map(req => ({
                 id: req.id,
-                supabaseId: req.id, // UUID for Supabase operations
-                lat: parseFloat(req.latitude), // Ensure numeric
-                lng: parseFloat(req.longitude), // Ensure numeric
-                price: req.price_cents / 100, // Convert cents to euros
+                supabaseId: req.id,
+                lat: parseFloat(req.latitude),
+                lng: parseFloat(req.longitude),
+                price: req.price_cents / 100,
                 title: req.location_name || req.description || 'Photo Request',
                 description: req.description || '',
-                urgent: req.category === 'urgent' || req.price_cents >= 200, // 2+ EUR is "urgent"
+                urgent: req.category === 'urgent' || req.price_cents >= 200,
                 distance: req.distance_meters,
                 createdAt: req.created_at,
                 creatorId: req.creator_id,
                 status: req.status,
-                isOwn: req.is_own || false, // Flag for own requests (show different marker)
+                isOwn: req.is_own || false,
             }));
 
             setRequests(transformedData);
-            setUpdateKey(k => k + 1);
-            initialFetchDone.current = true;
         } catch (err) {
-            console.error('❌ Nearby: Unexpected error:', err);
+            console.error('[useNearbyRequests] Unexpected error:', err);
             setError(err);
         } finally {
             setLoading(false);
         }
-    }, [latitude, longitude, radiusMeters]);
+    }, [latitude, longitude, radiusMeters, currentUserId]);
 
     // Refetch when location changes
     useEffect(() => {
         fetchRequests();
     }, [fetchRequests]);
 
-    // Background refetch (silent - doesn't set loading state)
+    // Silent background refetch — does not set loading state
     const silentRefetch = useCallback(async () => {
         if (!latitude || !longitude) return;
 
@@ -198,7 +133,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
             });
 
             if (!rpcError && data) {
-                const transformedData = (data || []).map(req => ({
+                const transformedData = data.map(req => ({
                     id: req.id,
                     supabaseId: req.id,
                     lat: parseFloat(req.latitude),
@@ -214,25 +149,15 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                     isOwn: req.is_own || false,
                 }));
                 setRequests(transformedData);
-                setUpdateKey(k => k + 1);
             }
         } catch (err) {
-            console.error('❌ Nearby: Silent refetch error:', err);
+            console.error('[useNearbyRequests] Silent refetch error:', err);
         }
     }, [latitude, longitude, radiusMeters]);
 
-    // Real-time subscription - Create IMMEDIATELY on mount, don't wait for location
+    // Real-time subscription — created once on mount
     useEffect(() => {
-        console.log('');
-        console.log('╔══════════════════════════════════════════════════════════╗');
-        console.log('║  🔔 SETTING UP REALTIME SUBSCRIPTION                     ║');
-        console.log('╚══════════════════════════════════════════════════════════╝');
-        console.log('🔔 This runs ONCE on mount (empty dependency array)');
-        console.log('🔔 Current time:', new Date().toISOString());
-
-        // Use timestamp to guarantee unique channel name
         const channelName = `nearby-requests-${Date.now()}`;
-        console.log('🔔 Channel name:', channelName);
 
         const channel = supabase
             .channel(channelName)
@@ -244,40 +169,11 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                     table: 'requests',
                 },
                 (payload) => {
-                    console.log('');
-                    console.log('╔══════════════════════════════════════════════════════════╗');
-                    console.log('║  🚨🚨🚨 REAL-TIME EVENT RECEIVED 🚨🚨🚨                  ║');
-                    console.log('╚══════════════════════════════════════════════════════════╝');
-                    console.log('📍 Event type:', payload.eventType);
-                    console.log('📍 Payload:', JSON.stringify(payload, null, 2));
-
-                    if (payload.eventType === 'INSERT') {
-                        console.log('');
-                        console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥');
-                        console.log('🔥  INSERT EVENT DETECTED!              🔥');
-                        console.log('🔥  Request ID:', payload.new?.id?.slice(0, 8), '...  🔥');
-                        console.log('🔥  Status:', payload.new?.status, '                   🔥');
-                        console.log('🔥  Expires:', payload.new?.expires_at, '    🔥');
-                        console.log('🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥');
-                        console.log('');
-
-                        // DEBUG VISUAL ALERT - Remove after testing
-                        Alert.alert(
-                            '🚨 REALTIME INSERT!',
-                            `ID: ${payload.new?.id?.slice(0, 8)}...\nStatus: ${payload.new?.status}\nExpires: ${payload.new?.expires_at}`,
-                            [{ text: 'OK' }]
-                        );
-                    }
-
                     if (payload.eventType === 'INSERT' && payload.new?.status === 'open') {
                         const newReq = payload.new;
-                        const isOwn = userIdRef.current && newReq.creator_id === userIdRef.current;
-
-                        console.log('📍 Processing INSERT - id:', newReq.id, 'isOwn:', isOwn);
-                        console.log('📍 Lat:', newReq.latitude, 'Lng:', newReq.longitude);
-                        console.log('📍 Price cents:', newReq.price_cents);
-                        console.log('📍 Creator ID:', newReq.creator_id);
-                        console.log('📍 Current user ID:', userIdRef.current);
+                        const isOwn = userIdRef.current
+                            ? newReq.creator_id === userIdRef.current
+                            : false;
 
                         const optimisticRequest = {
                             id: newReq.id,
@@ -291,93 +187,55 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                             createdAt: newReq.created_at,
                             creatorId: newReq.creator_id,
                             status: newReq.status,
-                            isOwn: isOwn,
+                            isOwn,
                             distance: null,
                         };
 
-                        // Use callback function to ensure we have the latest state
                         setRequests(prev => {
                             const exists = prev.some(r => r.id === newReq.id);
-                            if (exists) {
-                                console.log('📍 Request already exists, skipping');
-                                return prev;
-                            }
-                            console.log('📍 ADDING request to state, new count:', prev.length + 1);
+                            if (exists) return prev;
                             return [...prev, optimisticRequest];
                         });
 
-                        // CRITICAL: Increment updateKey AFTER state update with delay
-                        setTimeout(() => {
-                            console.log('📍 Incrementing updateKey to force re-render');
-                            setUpdateKey(k => k + 1);
-                        }, 100);
-
                     } else if (payload.eventType === 'UPDATE' && payload.new) {
                         const updatedReq = payload.new;
-                        console.log('📍 Processing UPDATE - id:', updatedReq.id, 'status:', updatedReq.status);
 
                         setRequests(prev => {
                             if (updatedReq.status !== 'open') {
-                                console.log('📍 Removing from map (status changed to', updatedReq.status, ')');
                                 return prev.filter(req => req.id !== updatedReq.id);
                             }
                             return prev.map(req =>
-                                req.id === updatedReq.id ? { ...req, status: updatedReq.status } : req
+                                req.id === updatedReq.id
+                                    ? { ...req, status: updatedReq.status }
+                                    : req
                             );
                         });
 
-                        setTimeout(() => setUpdateKey(k => k + 1), 100);
-
                     } else if (payload.eventType === 'DELETE' && payload.old?.id) {
-                        console.log('📍 Processing DELETE - id:', payload.old.id);
                         setRequests(prev => prev.filter(req => req.id !== payload.old.id));
-                        setTimeout(() => setUpdateKey(k => k + 1), 100);
                     }
                 }
             )
             .subscribe((status, err) => {
-                console.log('');
-                console.log('╔══════════════════════════════════════════════════════════╗');
-                console.log('║  🔔 SUBSCRIPTION STATUS CHANGE                           ║');
-                console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('🔔 Status:', status);
-                console.log('🔔 Channel name:', channelName);
                 if (err) {
-                    console.error('🔔 Subscription ERROR:', err);
-                    Alert.alert('Subscription Error', JSON.stringify(err));
-                }
-                if (status === 'SUBSCRIBED') {
-                    console.log('');
-                    console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
-                    console.log('✅  REALTIME SUBSCRIPTION IS NOW ACTIVE!             ✅');
-                    console.log('✅  Listening for INSERT/UPDATE/DELETE on requests   ✅');
-                    console.log('✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅');
-                    console.log('');
+                    console.error('[useNearbyRequests] Subscription error:', err);
                 }
                 if (status === 'CHANNEL_ERROR') {
-                    console.error('❌❌❌ CHANNEL ERROR - Realtime may not work! ❌❌❌');
-                    Alert.alert('Channel Error', 'Realtime subscription failed!');
-                }
-                if (status === 'TIMED_OUT') {
-                    console.error('⏰⏰⏰ SUBSCRIPTION TIMED OUT ⏰⏰⏰');
+                    console.error('[useNearbyRequests] Channel error — real-time unavailable');
                 }
             });
 
-        // Cleanup
         return () => {
-            console.log('🔕 Cleaning up subscription');
             supabase.removeChannel(channel);
         };
-    }, []); // EMPTY dependency - run once on mount
+    }, []); // Empty deps — subscribe once on mount
 
     return {
         requests,
         loading,
         error,
         refetch: fetchRequests,
-        updateKey, // Used to force MapView marker re-renders
     };
 };
 
 export default useNearbyRequests;
-

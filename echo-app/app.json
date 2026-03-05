@@ -13,6 +13,9 @@
       "bundleIdentifier": "com.echo.app",
       "config": {
         "googleMapsApiKey": "AIzaSyBvWnoXd8SmqKGrXP8yL7wag_13sVnUPcM"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -27,7 +30,12 @@
         }
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",

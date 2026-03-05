@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Modal } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-// Note: Mock REQUESTS removed - using only Supabase data
 import { COLORS, FONTS } from '../constants/theme';
 import { DARK_MAP_STYLE } from '../constants/mapStyle';
 import EchoButton from '../components/EchoButton';
@@ -25,57 +24,27 @@ const RadarScreen = ({ navigation }) => {
     const [selectedJob, setSelectedJob] = useState(null);
     const [locationName, setLocationName] = useState("Locating...");
     const [isMapMoving, setIsMapMoving] = useState(false);
-    const [mapReady, setMapReady] = useState(false);
-    const [initialRenderComplete, setInitialRenderComplete] = useState(false);
     const [testJobs, setTestJobs] = useState([]);
-    const [isHybridMap, setIsHybridMap] = useState(false); // false = dark, true = hybrid (satellite)
-    const [useSupabaseData, setUseSupabaseData] = useState(true); // Always use Supabase data
-    const [displayRequests, setDisplayRequests] = useState([]); // Local state for forcing marker re-renders
-    const [stableCoords, setStableCoords] = useState(null); // FIX: Stable coords for useNearbyRequests
+    const [isHybridMap, setIsHybridMap] = useState(false);
 
     const mapRef = useRef(null);
     const isMarkerPress = useRef(false);
 
-    // FIX: Set stable coordinates ONCE when location is first available
-    // This prevents the hook from being called with changing values
-    useEffect(() => {
-        if (location?.coords && !stableCoords) {
-            console.log('📍 Setting stable coordinates:', location.coords.latitude, location.coords.longitude);
-            setStableCoords({
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-            });
-        }
-    }, [location, stableCoords]);
-
-    // FIX: Trigger initial fetch as soon as stableCoords is available
-    useEffect(() => {
-        if (stableCoords) {
-            console.log('📍 stableCoords set, triggering initial fetch...');
-            refetchSupabaseRequests();
-        }
-    }, [stableCoords]);
-
-    // Supabase hook - fetches nearby requests from database
-    // FIX: Use stableCoords instead of location?.coords to prevent re-fetches
+    // Supabase hook — pass location coords directly, same pattern as ExpandedMapModal
     const {
         requests: supabaseRequests,
-        loading: supabaseLoading,
-        error: supabaseError,
         refetch: refetchSupabaseRequests,
-        updateKey: supabaseUpdateKey, // Used to force marker re-renders
     } = useNearbyRequests(
-        stableCoords?.latitude,
-        stableCoords?.longitude,
-        50000 // 50km radius for testing
+        location?.coords?.latitude,
+        location?.coords?.longitude,
+        50000 // 50km radius
     );
 
-    // Supabase hook - lock/accept requests
+    // Supabase hook — lock/accept requests
     const {
         lockRequest,
-        unlockRequest,
         loading: lockingRequest,
-        error: lockError
+        error: lockError,
     } = useLockRequest();
 
     // Subscribe to job store changes
@@ -92,58 +61,9 @@ const RadarScreen = ({ navigation }) => {
     // Auto-refresh when map screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            console.log('🗺️ Map focused - refreshing nearby requests...');
             refetchSupabaseRequests();
         }, [refetchSupabaseRequests])
     );
-
-    // FIX: Desabilita tracksViewChanges após render inicial para melhor performance
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setInitialRenderComplete(true);
-        }, 500); // Reduced from 2000ms for faster load
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Debug: Log Supabase data when it changes
-    useEffect(() => {
-        if (supabaseRequests) {
-            console.log('🗺️ Supabase nearby requests:', supabaseRequests.length, 'found');
-            if (supabaseRequests.length > 0) {
-                console.log('🗺️ First request:', JSON.stringify(supabaseRequests[0]));
-            }
-        }
-    }, [supabaseRequests]);
-
-    // Debug: log loading state and errors
-    useEffect(() => {
-        if (supabaseError) {
-            console.error('❌ Supabase error in RadarScreen:', supabaseError);
-        }
-        console.log('🗺️ RadarScreen state - loading:', supabaseLoading, 'requests:', supabaseRequests?.length || 0, 'location:', location ? 'YES' : 'NO', 'updateKey:', supabaseUpdateKey);
-    }, [supabaseLoading, supabaseError, supabaseRequests, location, supabaseUpdateKey]);
-
-    // Debug: Log when marker data changes (for debugging real-time updates)
-    useEffect(() => {
-        console.log('🗺️🗺️🗺️ MARKER DATA CHANGED 🗺️🗺️🗺️');
-        console.log('🗺️ supabaseRequests count:', supabaseRequests?.length || 0);
-        console.log('🗺️ supabaseUpdateKey:', supabaseUpdateKey);
-        console.log('🗺️ mapReady:', mapReady);
-        if (supabaseRequests && supabaseRequests.length > 0) {
-            supabaseRequests.forEach((req, i) => {
-                console.log(`  📍 [${i}] id=${req.id?.slice(0, 8)}... lat=${req.lat?.toFixed(5)} lng=${req.lng?.toFixed(5)} isOwn=${req.isOwn}`);
-            });
-        }
-    }, [supabaseRequests, supabaseUpdateKey, mapReady]);
-
-    // Sync displayRequests with supabaseRequests to force marker re-renders without destroying MapView
-    useEffect(() => {
-        if (supabaseRequests) {
-            console.log('🔄 Syncing displayRequests:', supabaseRequests.length, 'items, updateKey:', supabaseUpdateKey);
-            // Create new array reference to force re-render
-            setDisplayRequests([...supabaseRequests]);
-        }
-    }, [supabaseRequests, supabaseUpdateKey]);
 
     useEffect(() => {
         (async () => {
@@ -153,38 +73,36 @@ const RadarScreen = ({ navigation }) => {
                 return;
             }
 
-            // Try to get last known position first (instant)
+            // Use last known position first for instant map display
             let quickLocation = await Location.getLastKnownPositionAsync({});
             if (quickLocation) {
                 setLocation(quickLocation);
                 const quickRegion = {
                     latitude: quickLocation.coords.latitude,
                     longitude: quickLocation.coords.longitude,
-                    latitudeDelta: 0.001,
-                    longitudeDelta: 0.001,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
                 };
                 setCurrentRegion(quickRegion);
                 fetchAddress(quickRegion.latitude, quickRegion.longitude);
             }
 
-            // Then get accurate position (may take longer)
-            let location = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced, // Faster than High/Highest
+            // Then get accurate position
+            let accurateLocation = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
             });
-            setLocation(location);
+            setLocation(accurateLocation);
 
             const initialRegion = {
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
-                latitudeDelta: 0.001,
-                longitudeDelta: 0.001,
+                latitude: accurateLocation.coords.latitude,
+                longitude: accurateLocation.coords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
             };
             setCurrentRegion(initialRegion);
             fetchAddress(initialRegion.latitude, initialRegion.longitude);
         })();
     }, []);
-
-
 
     const fetchAddress = async (latitude, longitude) => {
         try {
@@ -204,7 +122,6 @@ const RadarScreen = ({ navigation }) => {
                 setLocationName("Unknown Location");
             }
         } catch (error) {
-            console.log("Error fetching address:", error);
             setLocationName("Location Unavailable");
         }
     };
@@ -219,7 +136,7 @@ const RadarScreen = ({ navigation }) => {
         if (currentRegion) {
             setSelectedCoordinates({
                 latitude: currentRegion.latitude,
-                longitude: currentRegion.longitude
+                longitude: currentRegion.longitude,
             });
             setShowCreateRequest(true);
         }
@@ -230,46 +147,34 @@ const RadarScreen = ({ navigation }) => {
     };
 
     const handleConfirmRequest = (payload) => {
-        // Check if Supabase creation was successful
         if (payload.supabaseId) {
-            console.log('✅ Request created in Supabase:', payload.supabaseId);
             showToast('Request Created!', 'success');
             setShowCreateRequest(false);
 
-            // FALLBACK: If real-time subscription doesn't work, force refetch after 1 second
+            // Fallback refetch in case the real-time subscription misses the insert
             setTimeout(() => {
-                console.log('');
-                console.log('╔══════════════════════════════════════════════════════════╗');
-                console.log('║  🔄🔄🔄 FALLBACK REFETCH TRIGGERED 🔄🔄🔄               ║');
-                console.log('╚══════════════════════════════════════════════════════════╝');
-                console.log('🔄 Current supabaseRequests count:', supabaseRequests?.length || 0);
-                console.log('🔄 Calling refetchSupabaseRequests()...');
                 refetchSupabaseRequests();
             }, 1000);
 
             return;
         }
 
-        // If Supabase failed, show error
         if (payload.supabaseError) {
-            console.error('Supabase error:', payload.errorMessage);
+            console.error('[RadarScreen] Request creation error:', payload.errorMessage);
             showToast('Failed to create request', 'error');
-            // Fallback to local job for demo purposes
         }
 
-        // Fallback: Create a job in the local store so it appears on the map
+        // Fallback: add to local store for demo purposes
         const newJob = addTestJob({
             lat: payload.latitude,
             lng: payload.longitude,
-            price: 0.50, // Default price for requests
+            price: 0.50,
             description: payload.description || 'Photo requested',
             urgent: false,
             isTestJob: true,
         });
 
-        // Force immediate update of test jobs
         setTestJobs(getTestJobs());
-
         showToast('Job Requested (Local)', 'success');
         setShowCreateRequest(false);
     };
@@ -278,7 +183,6 @@ const RadarScreen = ({ navigation }) => {
         try {
             isMarkerPress.current = true;
 
-            // Ensure job has all required properties with safe types
             const safeJob = {
                 id: job.id || 0,
                 lat: parseFloat(job.lat) || 0,
@@ -287,8 +191,7 @@ const RadarScreen = ({ navigation }) => {
                 title: job.title || '',
                 description: job.description || '',
                 urgent: !!job.urgent,
-                // Supabase-specific fields
-                supabaseId: job.supabaseId || null, // UUID from Supabase
+                supabaseId: job.supabaseId || null,
                 creatorId: job.creatorId || null,
                 status: job.status || 'open',
             };
@@ -299,7 +202,7 @@ const RadarScreen = ({ navigation }) => {
                 isMarkerPress.current = false;
             }, 1000);
         } catch (error) {
-            console.error('Error in handleMarkerPress:', error);
+            console.error('[RadarScreen] Error in handleMarkerPress:', error);
             isMarkerPress.current = false;
         }
     };
@@ -321,7 +224,6 @@ const RadarScreen = ({ navigation }) => {
             return;
         }
 
-        // Ensure all job properties are type-safe and defined
         const jobToPass = {
             id: selectedJob.id || 0,
             lat: parseFloat(selectedJob.lat) || 0,
@@ -330,17 +232,16 @@ const RadarScreen = ({ navigation }) => {
             description: selectedJob.description || '',
             title: selectedJob.title || '',
             urgent: !!selectedJob.urgent,
-            supabaseId: selectedJob.supabaseId, // Pass Supabase ID if it's a real request
+            supabaseId: selectedJob.supabaseId,
         };
 
-        // If it's a Supabase request (has UUID), try to lock it
         if (selectedJob.supabaseId) {
             const { success, error } = await lockRequest(selectedJob.supabaseId);
 
             if (!success) {
                 showToast(error?.message || 'Job no longer available', 'error');
                 setSelectedJob(null);
-                refetchSupabaseRequests(); // Refresh to show updated state
+                refetchSupabaseRequests();
                 return;
             }
         }
@@ -378,11 +279,9 @@ const RadarScreen = ({ navigation }) => {
                 accuracy: Location.Accuracy.High,
             });
 
-            // Update location state - single source of truth
             setLocation(currentLocation);
 
             if (mapRef.current) {
-                // Use animateToRegion for reliable centering with max zoom
                 mapRef.current.animateToRegion({
                     latitude: currentLocation.coords.latitude,
                     longitude: currentLocation.coords.longitude,
@@ -391,7 +290,7 @@ const RadarScreen = ({ navigation }) => {
                 }, 450);
             }
         } catch (error) {
-            console.log("Error centering:", error);
+            console.error('[RadarScreen] Error centering on user:', error);
         }
     };
 
@@ -418,7 +317,6 @@ const RadarScreen = ({ navigation }) => {
                         loadingBackgroundColor={COLORS.background}
                         removeClippedSubviews={false}
                         moveOnMarkerPress={false}
-                        onMapReady={() => setMapReady(true)}
                         scrollEnabled={!selectedJob}
                         zoomEnabled={!selectedJob}
                         rotateEnabled={false}
@@ -442,7 +340,7 @@ const RadarScreen = ({ navigation }) => {
                             </Marker>
                         )}
 
-                        {/* 10M RADIUS CIRCLE - offset compensated */}
+                        {/* 10M RADIUS CIRCLE */}
                         {location && location.coords && (
                             <Circle
                                 center={{
@@ -456,26 +354,15 @@ const RadarScreen = ({ navigation }) => {
                             />
                         )}
 
-                        {/* Note: Mock requests removed - using only Supabase data */}
-
-                        {/* NEARBY DYNAMIC REQUESTS FROM SUPABASE */}
-                        {/* displayRequests is synced with supabaseRequests to force re-renders */}
-                        {displayRequests && displayRequests.length > 0 && displayRequests.map((req, index) => {
+                        {/* NEARBY REQUESTS FROM SUPABASE */}
+                        {supabaseRequests && supabaseRequests.map((req) => {
                             const lat = parseFloat(req.lat);
                             const lng = parseFloat(req.lng);
-                            // Skip invalid coordinates
-                            if (isNaN(lat) || isNaN(lng)) {
-                                console.warn('⚠️ Invalid coordinates for request:', req.id, req.lat, req.lng);
-                                return null;
-                            }
-                            // DEBUG: Log EVERY marker render attempt
-                            console.log('🎯🎯🎯 ATTEMPTING TO RENDER MARKER 🎯🎯🎯');
-                            console.log('🎯 Index:', index, 'ID:', req.id?.slice(0, 8));
-                            console.log('🎯 Coords:', lat.toFixed(5), lng.toFixed(5));
-                            console.log('🎯 Price:', req.price, 'isOwn:', req.isOwn);
+                            if (isNaN(lat) || isNaN(lng)) return null;
+
                             return (
                                 <Marker
-                                    key={`nearby-${req.id}-${supabaseUpdateKey}`}
+                                    key={`nearby-${req.id}`}
                                     coordinate={{ latitude: lat, longitude: lng }}
                                     onPress={(e) => {
                                         e.stopPropagation();
@@ -499,9 +386,7 @@ const RadarScreen = ({ navigation }) => {
                             );
                         })}
 
-                        {/* DEBUG TEST MARKER - REMOVED */}
-
-                        {/* ADMIN TEST JOBS FROM STORE - Same style as regular jobs */}
+                        {/* ADMIN TEST JOBS FROM LOCAL STORE */}
                         {testJobs && testJobs.map((job) => (
                             <Marker
                                 key={`test-${job.id}`}
@@ -511,7 +396,7 @@ const RadarScreen = ({ navigation }) => {
                                     handleMarkerPress(job);
                                 }}
                                 anchor={{ x: 0.5, y: 0.5 }}
-                                tracksViewChanges={!initialRenderComplete}
+                                tracksViewChanges={true}
                                 zIndex={String(selectedJob?.id) === String(job.id) ? 999 : 100}
                             >
                                 <View style={styles.markerWrapper}>
@@ -547,7 +432,7 @@ const RadarScreen = ({ navigation }) => {
                 </View>
             </View>
 
-            {/* MAP STYLE TOGGLE - Top Left (dark ↔ satellite/hybrid) */}
+            {/* MAP STYLE TOGGLE */}
             <TouchableOpacity
                 style={styles.mapStyleButton}
                 onPress={() => {
@@ -563,7 +448,7 @@ const RadarScreen = ({ navigation }) => {
                 />
             </TouchableOpacity>
 
-            {/* CUSTOM RE-CENTER BUTTON - Top Right */}
+            {/* RE-CENTER BUTTON */}
             <TouchableOpacity
                 style={styles.recenterButton}
                 onPress={centerOnUser}
@@ -621,8 +506,6 @@ const RadarScreen = ({ navigation }) => {
                     </View>
                 );
             })()}
-
-            {/* DEBUG OVERLAY - REMOVED (keeping logs in code for now) */}
         </View>
     );
 };
@@ -651,7 +534,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 10,
-        // Fine-tune: shift crosshair to match user dot position
         marginTop: -20,
         marginLeft: -20,
     },
@@ -670,7 +552,6 @@ const styles = StyleSheet.create({
         borderWidth: 3,
         alignItems: 'center',
         justifyContent: 'center',
-        // FIX GHOSTING - Remover todas as sombras (Android Maps SDK não suporta sombras em markers)
         elevation: 0,
         shadowColor: 'transparent',
         shadowOffset: { width: 0, height: 0 },
@@ -678,16 +559,16 @@ const styles = StyleSheet.create({
         shadowRadius: 0,
     },
     markerNormal: {
-        borderColor: COLORS.secondary, // Green for available requests from others
+        borderColor: COLORS.primary,
     },
     markerUrgent: {
-        borderColor: COLORS.error, // Red for urgent
+        borderColor: COLORS.primary,
     },
     markerOwn: {
-        borderColor: '#4A90D9', // Blue for own requests
+        borderColor: COLORS.primary,
     },
     markerTestJob: {
-        borderColor: COLORS.primary, // Yellow for test jobs
+        borderColor: COLORS.primary,
     },
     markerText: {
         color: '#FFFFFF',

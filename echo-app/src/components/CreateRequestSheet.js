@@ -65,32 +65,11 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
 
     // Handle submit - create request in Supabase or fallback to local
     const handleSubmit = async () => {
-        console.log('');
-        console.log('╔══════════════════════════════════════════════════════════╗');
-        console.log('║  📍 HANDLE SUBMIT CALLED                                 ║');
-        console.log('╚══════════════════════════════════════════════════════════╝');
-        console.log('📍 Description:', description);
-        console.log('📍 Description trimmed:', description.trim());
-        console.log('📍 Description empty?:', !description.trim());
-
-        if (!description.trim()) {
-            console.log('❌ ABORTED: Description is empty');
-            return;
-        }
+        if (!description.trim()) return;
 
         setIsSubmitting(true);
 
-        console.log('');
-        console.log('📍 ATTEMPTING TO CREATE REQUEST...');
-        console.log('📍 Coordinates:', selectedLocation.latitude, selectedLocation.longitude);
-        console.log('📍 User object:', user);
-        console.log('📍 User ID:', user?.id);
-        console.log('📍 Is user authenticated?:', !!user?.id);
-
-        // If user is authenticated, create request in Supabase
         if (user?.id) {
-            console.log('✅ User is authenticated, calling createRequest()...');
-
             const requestParams = {
                 latitude: selectedLocation.latitude,
                 longitude: selectedLocation.longitude,
@@ -99,24 +78,13 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 priceCents: 50, // €0.50 default
                 category: 'general',
             };
-            console.log('📍 Request params:', JSON.stringify(requestParams, null, 2));
 
             const { data, error } = await createRequest(requestParams);
-
-            console.log('');
-            console.log('╔══════════════════════════════════════════════════════════╗');
-            console.log('║  📍 SUPABASE RESPONSE                                    ║');
-            console.log('╚══════════════════════════════════════════════════════════╝');
-            console.log('📍 Data:', JSON.stringify(data, null, 2));
-            console.log('📍 Error:', error);
 
             setIsSubmitting(false);
 
             if (error) {
-                console.error('❌ Failed to create request:', error);
-                console.error('❌ Error message:', error.message);
-                console.error('❌ Error details:', JSON.stringify(error, null, 2));
-                // Still call onConfirm to show feedback (will fallback to local in RadarScreen)
+                console.error('[CreateRequestSheet] Failed to create request:', error.message);
                 onConfirm({
                     ...selectedLocation,
                     description,
@@ -126,10 +94,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 return;
             }
 
-            console.log('✅ SUCCESS! Request created with ID:', data?.id);
-            console.log('✅ Full data:', JSON.stringify(data, null, 2));
-
-            // Success - pass Supabase data back
+            // Success — pass Supabase record back to RadarScreen
             onConfirm({
                 ...selectedLocation,
                 description,
@@ -137,9 +102,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 supabaseData: data,
             });
         } else {
-            // Not authenticated - use local mock (fallback)
-            console.log('⚠️ USER NOT AUTHENTICATED - using local fallback');
-            console.log('⚠️ user object is:', user);
+            // Not authenticated — use local fallback
             setIsSubmitting(false);
             onConfirm({ ...selectedLocation, description });
         }
