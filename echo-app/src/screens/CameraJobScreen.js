@@ -9,6 +9,7 @@ import PremiumRadar from '../components/PremiumRadar';
 import { useToast } from '../context/ToastContext';
 import { addTakenPhoto, updateJobStatus } from '../store/jobStore';
 import { useSubmitPhoto } from '../hooks';
+import { supabase } from '../lib/supabase';
 
 // --- HELPER FUNCTIONS ---
 
@@ -82,6 +83,9 @@ const CameraJobScreen = ({ navigation, route }) => {
 
     // Supabase hook for photo submission
     const { submitPhoto, loading: submittingPhoto, progress: uploadProgress } = useSubmitPhoto();
+
+    // Track whether the agent submitted a photo — used to skip unlock on back
+    const photoSubmittedRef = useRef(false);
 
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
     const [locationPermission, setLocationPermission] = useState(null);
@@ -263,6 +267,20 @@ const CameraJobScreen = ({ navigation, route }) => {
         }
     }, [isAligned]);
 
+    // Release the locked job if agent navigates away without submitting a photo
+    useEffect(() => {
+        if (!job.supabaseId) return; // local/test job — nothing to unlock
+
+        const unsubscribe = navigation.addListener('beforeRemove', () => {
+            if (!photoSubmittedRef.current) {
+                // Fire-and-forget — we don't await here to avoid blocking navigation
+                supabase.rpc('unlock_request', { p_request_id: job.supabaseId });
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation, job.supabaseId]);
+
     // 3. Handle Permissions UI
     if (!cameraPermission || !locationPermission) {
         return <View style={styles.container} />;
@@ -356,6 +374,7 @@ const CameraJobScreen = ({ navigation, route }) => {
                     updateJobStatus(job.id, 'completed');
                 }
 
+                photoSubmittedRef.current = true; // prevent unlock on navigation
                 navigation.navigate('AgentPreview', { photoUri: photo.uri });
                 setIsProcessing(false);
             } catch (error) {

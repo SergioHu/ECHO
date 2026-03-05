@@ -79,10 +79,18 @@ export const useMyActivity = () => {
                         );
 
                         // Find the latest non-rejected photo (for display)
-                        // If all photos are rejected, show the latest rejected one
                         const latestActivePhoto = allPhotos.find(p => p.status !== 'rejected');
                         const latestRejectedPhoto = allPhotos.find(p => p.status === 'rejected');
-                        const photo = latestActivePhoto || latestRejectedPhoto || null;
+
+                        // If the request is back to 'open' (admin rejected and reset it)
+                        // and there are only rejected photos, treat it as a fresh open request.
+                        // The requester should see "WAITING FOR PHOTO" — not "PHOTO REJECTED".
+                        const isReopenedAfterRejection =
+                            req.status === 'open' && !latestActivePhoto && !!latestRejectedPhoto;
+
+                        const photo = isReopenedAfterRejection
+                            ? null
+                            : (latestActivePhoto || latestRejectedPhoto || null);
 
                         console.log(`📋 Request ${req.id}: ${allPhotos.length} photos, active: ${latestActivePhoto?.id || 'none'}, rejected: ${latestRejectedPhoto?.id || 'none'}`);
 
@@ -190,7 +198,16 @@ export const useMyActivity = () => {
                 setError(jobsError);
             } else {
                 // Transform to UI format - include rejection feedback
-                const transformedJobs = (jobsData || []).map(photo => {
+                // Filter out photos whose parent request is back to 'open' after rejection:
+                // those jobs are live again for new agents — agent's history entry is gone.
+                const transformedJobs = (jobsData || [])
+                    .filter(photo => {
+                        if (photo.status === 'rejected' && photo.request?.status === 'open') {
+                            return false; // Job was reset — remove from agent's history
+                        }
+                        return true;
+                    })
+                    .map(photo => {
                     // Find any resolved dispute with notes (check all dispute statuses that indicate resolution)
                     const resolvedDispute = photo.disputes?.find(d =>
                         d.resolution_notes && (
