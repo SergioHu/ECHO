@@ -390,6 +390,11 @@ const CameraJobScreen = ({ navigation, route }) => {
             {/* Camera View */}
             <CameraView style={styles.camera} ref={cameraRef} facing="back" />
 
+            {/* TEMP DEBUG MARKER — remove after confirming fix works */}
+            <Text style={{position:'absolute',top:10,right:10,color:'red',fontSize:16,fontWeight:'bold',zIndex:9999,backgroundColor:'rgba(0,0,0,0.7)',padding:4}}>
+                {'BUILD-0f263a8 | id:' + (job.supabaseId ? job.supabaseId.slice(0,8) : 'NULL')}
+            </Text>
+
             {/* Close Button - Top Left */}
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
                 <View style={styles.closeButtonInner}>

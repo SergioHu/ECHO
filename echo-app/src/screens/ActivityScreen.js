@@ -552,6 +552,10 @@ const ActivityScreen = () => {
 
     return (
         <ScreenWrapper>
+            {/* TEMP DEBUG MARKER — remove after confirming fix works */}
+            <Text style={{color:'red',fontSize:13,fontWeight:'bold',textAlign:'center',backgroundColor:'rgba(0,0,0,0.5)',padding:2}}>
+                BUILD-0f263a8
+            </Text>
             <Text style={styles.headerTitle}>Activity</Text>
 
             {/* Segmented Control / Tabs */}
