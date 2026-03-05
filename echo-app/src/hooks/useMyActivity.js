@@ -82,11 +82,11 @@ export const useMyActivity = () => {
                         const latestActivePhoto = allPhotos.find(p => p.status !== 'rejected');
                         const latestRejectedPhoto = allPhotos.find(p => p.status === 'rejected');
 
-                        // If the request is back to 'open' (admin rejected and reset it)
-                        // and there are only rejected photos, treat it as a fresh open request.
-                        // The requester should see "WAITING FOR PHOTO" — not "PHOTO REJECTED".
-                        const isReopenedAfterRejection =
-                            req.status === 'open' && !latestActivePhoto && !!latestRejectedPhoto;
+                        // If all photos are rejected and there is no active photo,
+                        // treat the request as if there's no photo — regardless of status.
+                        // This covers: 'open' (reset), 'locked' (new agent assigned),
+                        // 'fulfilled' (edge-case duplicate rejection).
+                        const isReopenedAfterRejection = !latestActivePhoto && !!latestRejectedPhoto;
 
                         const photo = isReopenedAfterRejection
                             ? null

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Vibration, Animated, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
@@ -276,7 +276,10 @@ const CameraJobScreen = ({ navigation, route }) => {
     useEffect(() => {
         return () => {
             if (supabaseIdRef.current && !photoSubmittedRef.current) {
+                Alert.alert('DEBUG UNLOCK', 'Releasing job: ' + supabaseIdRef.current);
                 supabase.rpc('unlock_request', { p_request_id: supabaseIdRef.current });
+            } else {
+                Alert.alert('DEBUG NO UNLOCK', 'submitted=' + photoSubmittedRef.current + ' id=' + supabaseIdRef.current);
             }
         };
     }, []); // empty deps — only the cleanup matters
