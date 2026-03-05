@@ -87,6 +87,9 @@ const CameraJobScreen = ({ navigation, route }) => {
     // Track whether the agent submitted a photo — used to skip unlock on back
     const photoSubmittedRef = useRef(false);
 
+    // Store supabaseId in a ref so the cleanup closure captures the right value
+    const supabaseIdRef = useRef(job.supabaseId);
+
     const [cameraPermission, requestCameraPermission] = useCameraPermissions();
     const [locationPermission, setLocationPermission] = useState(null);
 
@@ -267,19 +270,16 @@ const CameraJobScreen = ({ navigation, route }) => {
         }
     }, [isAligned]);
 
-    // Release the locked job if agent navigates away without submitting a photo
+    // Release the locked job when screen unmounts without a submitted photo.
+    // useEffect cleanup fires on ANY unmount (back button, close button, navigate away)
+    // and is more reliable than beforeRemove with the JS stack navigator.
     useEffect(() => {
-        if (!job.supabaseId) return; // local/test job — nothing to unlock
-
-        const unsubscribe = navigation.addListener('beforeRemove', () => {
-            if (!photoSubmittedRef.current) {
-                // Fire-and-forget — we don't await here to avoid blocking navigation
-                supabase.rpc('unlock_request', { p_request_id: job.supabaseId });
+        return () => {
+            if (supabaseIdRef.current && !photoSubmittedRef.current) {
+                supabase.rpc('unlock_request', { p_request_id: supabaseIdRef.current });
             }
-        });
-
-        return unsubscribe;
-    }, [navigation, job.supabaseId]);
+        };
+    }, []); // empty deps — only the cleanup matters
 
     // 3. Handle Permissions UI
     if (!cameraPermission || !locationPermission) {

@@ -92,15 +92,19 @@ export const useMyActivity = () => {
                             ? null
                             : (latestActivePhoto || latestRejectedPhoto || null);
 
-                        console.log(`📋 Request ${req.id}: ${allPhotos.length} photos, active: ${latestActivePhoto?.id || 'none'}, rejected: ${latestRejectedPhoto?.id || 'none'}`);
+                        // When reopened after rejection: clear dispute too so ActivityScreen
+                        // doesn't render the old "Admin Feedback" / rejection notes block.
+                        const dispute = isReopenedAfterRejection ? null : (req.disputes?.[0] || null);
 
-                        const dispute = req.disputes?.[0] || null;
+                        // isPhotoRejected drives the "PHOTO REJECTED" banner.
+                        // When reopened we want "WAITING FOR PHOTO", so force it false.
+                        const isPhotoRejected = !isReopenedAfterRejection && photo?.status === 'rejected';
+
                         let photoUrl = null;
 
                         // Generate signed URL for photo thumbnail if exists (and not rejected)
                         if (photo?.storage_path && photo?.status !== 'rejected') {
                             try {
-                                console.log('📸 Getting signed URL for:', photo.storage_path);
                                 const { data: urlData, error: urlError } = await supabase.storage
                                     .from('echo-photos')
                                     .createSignedUrl(photo.storage_path, SIGNED_URL_DURATION);
@@ -108,15 +112,11 @@ export const useMyActivity = () => {
                                     console.error('❌ Signed URL error:', urlError);
                                 } else {
                                     photoUrl = urlData?.signedUrl || null;
-                                    console.log('✅ Got signed URL:', photoUrl ? 'success' : 'null');
                                 }
                             } catch (err) {
                                 console.error('Error getting signed URL:', err);
                             }
                         }
-
-                        // Check if the current photo was rejected
-                        const isPhotoRejected = photo?.status === 'rejected';
 
                         return {
                             id: req.id,
@@ -128,7 +128,8 @@ export const useMyActivity = () => {
                             createdAt: req.created_at,
                             lat: req.latitude,
                             lng: req.longitude,
-                            hasPhoto: req.photos && req.photos.length > 0 && !isPhotoRejected,
+                            // hasPhoto must be false when reopened — there's no viewable photo
+                            hasPhoto: !isReopenedAfterRejection && req.photos && req.photos.length > 0 && !isPhotoRejected,
                             photo: photo,
                             photoStatus: photo?.status || null, // 'pending', 'approved', 'rejected', 'validated'
                             photoUrl: isPhotoRejected ? null : photoUrl, // No thumbnail for rejected photos
