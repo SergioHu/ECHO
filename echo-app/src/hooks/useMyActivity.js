@@ -202,8 +202,11 @@ export const useMyActivity = () => {
                 // those jobs are live again for new agents — agent's history entry is gone.
                 const transformedJobs = (jobsData || [])
                     .filter(photo => {
-                        if (photo.status === 'rejected' && photo.request?.status === 'open') {
-                            return false; // Job was reset — remove from agent's history
+                        // Remove rejected photos where the request is no longer relevant:
+                        // - 'open': job was reset, live again for new agents
+                        // - 'fulfilled': a different photo passed, this one is obsolete
+                        if (photo.status === 'rejected' && ['open', 'fulfilled'].includes(photo.request?.status)) {
+                            return false;
                         }
                         return true;
                     })

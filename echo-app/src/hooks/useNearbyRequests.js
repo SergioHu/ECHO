@@ -204,6 +204,26 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                             if (updatedReq.status !== 'open') {
                                 return prev.filter(req => req.id !== updatedReq.id);
                             }
+                            // Job returned to 'open' (e.g. unlocked after agent backed out)
+                            // If it's no longer in the list, add it back
+                            const exists = prev.some(r => r.id === updatedReq.id);
+                            if (!exists) {
+                                return [...prev, {
+                                    id: updatedReq.id,
+                                    supabaseId: updatedReq.id,
+                                    lat: parseFloat(updatedReq.latitude),
+                                    lng: parseFloat(updatedReq.longitude),
+                                    price: updatedReq.price_cents / 100,
+                                    title: updatedReq.location_name || updatedReq.description || 'Photo Request',
+                                    description: updatedReq.description || '',
+                                    urgent: updatedReq.category === 'urgent' || updatedReq.price_cents >= 200,
+                                    createdAt: updatedReq.created_at,
+                                    creatorId: updatedReq.creator_id,
+                                    status: updatedReq.status,
+                                    isOwn: updatedReq.creator_id === userIdRef.current,
+                                    distance: null,
+                                }];
+                            }
                             return prev.map(req =>
                                 req.id === updatedReq.id
                                     ? { ...req, status: updatedReq.status }
