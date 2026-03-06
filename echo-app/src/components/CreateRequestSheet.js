@@ -21,6 +21,7 @@ import { useCreateRequest } from '../hooks/useCreateRequest';
 import { useAuth } from '../context/AuthContext';
 
 const GOOGLE_API_KEY =
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
     Constants.expoConfig?.android?.config?.googleMaps?.apiKey ||
     Constants.expoConfig?.ios?.config?.googleMapsApiKey ||
     '';

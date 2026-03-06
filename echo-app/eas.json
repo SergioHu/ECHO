@@ -18,10 +18,16 @@
       },
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBvWnoXd8SmqKGrXP8yL7wag_13sVnUPcM"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyBvWnoXd8SmqKGrXP8yL7wag_13sVnUPcM"
+      }
     }
   },
   "submit": {
