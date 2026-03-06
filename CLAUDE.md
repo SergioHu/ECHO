@@ -1,8 +1,8 @@
 # ECHO — Master Project Context for Claude
 
-**Last Updated:** March 5, 2026
+**Last Updated:** March 6, 2026
 **Project Status:** Phase 6 Complete + Bug Fixes
-**Version:** 3.0 (single merged CLAUDE.md)
+**Version:** 3.1
 
 ---
 
@@ -450,6 +450,7 @@ showToast('Message', 'success'); // 'success' | 'error' | 'info'
 - Full-screen camera, PremiumRadar overlay (top-left)
 - Real-time distance tracking, shutter enabled only within 10m
 - Heading-based camera cone
+- **Job unlock on back press:** Uses `beforeRemove` + `e.preventDefault()` + `await unlock_request()` + `navigation.dispatch(e.data.action)`. This blocks navigation until the RPC completes. `photoSubmittedRef` prevents unlocking after a successful submission. Do NOT use `useEffect` cleanup for this — fire-and-forget network calls from cleanup are unreliable.
 
 ### PhotoViewerScreen
 - 3-minute countdown via PhotoTimerContext
@@ -558,6 +559,7 @@ ledger_type:    'deposit' | 'withdrawal' | 'payment' | 'earning' | 'platform_fee
 | `get_admin_disputes()` | `(p_status) → TABLE` | Filtered disputes |
 | `get_admin_users()` | `(p_search) → TABLE` | User search |
 | `get_admin_analytics()` | `(p_period) → JSONB` | Period analytics |
+| `unlock_request()` | `(p_request_id) → JSONB {success, error?}` | Release locked job atomically — only agent who locked it, only if no photo submitted |
 | `admin_approve_photo()` | `(p_photo_id) → BOOLEAN` | |
 | `admin_reject_photo()` | `(p_photo_id, p_reason) → BOOLEAN` | |
 
@@ -626,7 +628,7 @@ USING (
 
 ## 17. MIGRATIONS
 
-Latest: `00027_expire_old_requests.sql`. Next new migration: `00028_...`
+Latest: `00028_unlock_request.sql`. Next new migration: `00029_...`
 
 | File | Description |
 |------|-------------|
@@ -656,6 +658,7 @@ Latest: `00027_expire_old_requests.sql`. Next new migration: `00028_...`
 | `00025` | Fix `get_nearby_requests` |
 | `00026` | Fix resolve dispute timer |
 | `00027` | Auto-expire stale open requests |
+| `00028` | `unlock_request` RPC — release locked job on agent back press |
 
 ---
 
@@ -819,6 +822,24 @@ Fix: `tracksViewChanges={true}` on all job markers, matching ExpandedMapModal be
 
 **Also removed:** `updateKey` state (was unmounting all markers on every real-time event), `displayRequests` intermediate state, 30+ debug `console.log`/`Alert.alert` calls.
 
+### RESOLVED: Job Stays Locked After Agent Presses Back (March 2026)
+
+**Root cause:** `useEffect` cleanup called `supabase.rpc('unlock_request', ...)` fire-and-forget. The network request started but completed with an auth error silently — `auth.uid()` check in the RPC failed before the Promise resolved.
+
+**Fix:** Replaced with `navigation.addListener('beforeRemove', async (e) => { e.preventDefault(); await supabase.rpc(...); navigation.dispatch(e.data.action); })`. Navigation is blocked until the RPC completes.
+
+**Key rule:** Never rely on `useEffect` cleanup for critical async operations that must complete before navigation. Use `beforeRemove` + `e.preventDefault()` + `await` instead.
+
+### RESOLVED: Stale Rejection Feedback Shown in Activity (March 2026)
+
+Two sub-bugs:
+
+**Bug A — `isReopenedAfterRejection` too narrow:**
+Condition required `req.status === 'open'`, but fulfilled requests with both a rejected and a validated photo also triggered the problem. Fix: removed the status check — `const isReopenedAfterRejection = !latestActivePhoto && !!latestRejectedPhoto`.
+
+**Bug B — Admin Feedback shown alongside valid photo:**
+When a request has both a rejected photo (old) and a validated photo (new), `disputeRejected=true` and `disputeResolutionNotes` were set, causing the Admin Feedback block to render even though the requester had a valid VIEW PHOTO button. Fix: added `&& !hasPhoto` to the condition in `ActivityScreen.js` — feedback is hidden whenever a valid photo exists.
+
 ---
 
 ## 23. SECURITY CHECKLIST
@@ -846,6 +867,8 @@ Fix: `tracksViewChanges={true}` on all job markers, matching ExpandedMapModal be
 - ✅ Phase 6: Full Supabase Integration
 - ✅ Critical Fix: RadarScreen job markers — 14 markers confirmed visible, real-time updates working (March 2026)
 - ✅ DB Fix: Manually confirmed email for `filipamadureira.lmg@gmail.com` via `UPDATE auth.users SET email_confirmed_at = now()` — `confirmed_at` is a generated column (March 5, 2026)
+- ✅ Bug Fix: Job stuck locked after agent back press — `unlock_request` RPC + `beforeRemove` pattern (March 6, 2026)
+- ✅ Bug Fix: Stale rejection feedback in Activity — `isReopenedAfterRejection` broadened + `!hasPhoto` guard on Admin Feedback block (March 6, 2026)
 
 ### In Progress
 - 🚧 Stripe Payment Integration
@@ -854,4 +877,3 @@ Fix: `tracksViewChanges={true}` on all job markers, matching ExpandedMapModal be
 ### Upcoming
 - 📋 Production Security Hardening
 - 📋 App Store Deployment
-contiunue
