@@ -2,7 +2,7 @@
 
 **Last Updated:** March 6, 2026
 **Project Status:** Phase 6 Complete + Bug Fixes
-**Version:** 3.1
+**Version:** 3.2
 
 ---
 
@@ -830,6 +830,22 @@ Fix: `tracksViewChanges={true}` on all job markers, matching ExpandedMapModal be
 
 **Key rule:** Never rely on `useEffect` cleanup for critical async operations that must complete before navigation. Use `beforeRemove` + `e.preventDefault()` + `await` instead.
 
+### RESOLVED: Google Places Search Broken in EAS Builds (March 2026)
+
+**Symptom:** Location search (autocomplete) worked in Expo Go but did nothing in EAS builds — no suggestions, no error shown.
+
+**Root cause:** `GOOGLE_API_KEY` in `CreateRequestSheet.js` was read from `Constants.expoConfig?.android?.config?.googleMaps?.apiKey`. This field is a **native plugin build-time config** — Expo uses it to write the key into `AndroidManifest.xml` for the Maps SDK, but it is **not reliably present in the runtime manifest of a standalone EAS build**. Result: key resolved to `''` → Places API returned `REQUEST_DENIED` → `data.status !== 'OK'` → `setSuggestions([])`. Silently swallowed by `catch` block.
+
+**Fix:**
+1. Added `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` to `eas.json` under `preview` and `production` `env` sections — EAS build servers expose it to Metro, which bakes it as a static string into the JS bundle.
+2. Changed `CreateRequestSheet.js` to read `process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` first, with `Constants.expoConfig` as fallback.
+
+**Key rule:** `EXPO_PUBLIC_*` env vars in `eas.json` `env` are the reliable way to pass config into EAS builds. `Constants.expoConfig.android.config.*` fields are for native plugin configuration only — do not rely on them at runtime in standalone builds.
+
+**Files changed:** `eas.json`, `src/components/CreateRequestSheet.js`
+
+---
+
 ### RESOLVED: Stale Rejection Feedback Shown in Activity (March 2026)
 
 Two sub-bugs:
@@ -869,6 +885,7 @@ When a request has both a rejected photo (old) and a validated photo (new), `dis
 - ✅ DB Fix: Manually confirmed email for `filipamadureira.lmg@gmail.com` via `UPDATE auth.users SET email_confirmed_at = now()` — `confirmed_at` is a generated column (March 5, 2026)
 - ✅ Bug Fix: Job stuck locked after agent back press — `unlock_request` RPC + `beforeRemove` pattern (March 6, 2026)
 - ✅ Bug Fix: Stale rejection feedback in Activity — `isReopenedAfterRejection` broadened + `!hasPhoto` guard on Admin Feedback block (March 6, 2026)
+- ✅ Bug Fix: Google Places search silent in EAS builds — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` added to `eas.json` env + used as primary source in `CreateRequestSheet.js` (March 6, 2026)
 
 ### In Progress
 - 🚧 Stripe Payment Integration
