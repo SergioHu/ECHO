@@ -298,9 +298,14 @@ const CameraJobScreen = ({ navigation, route }) => {
     }
 
     if (!cameraPermission.granted || locationPermission.status !== 'granted') {
+        const missingCamera = !cameraPermission.granted;
+        const missingLocation = locationPermission.status !== 'granted';
+        const permissionLabel = missingCamera && missingLocation
+            ? 'Camera & Location'
+            : missingCamera ? 'Camera' : 'Location';
         return (
             <View style={styles.container}>
-                <Text style={styles.message}>Permission needed.</Text>
+                <Text style={styles.message}>{permissionLabel} permission required to capture photos for this job.</Text>
                 <TouchableOpacity onPress={requestCameraPermission} style={styles.permissionButton}>
                     <Text style={styles.permissionText}>Open Settings</Text>
                 </TouchableOpacity>
@@ -309,7 +314,6 @@ const CameraJobScreen = ({ navigation, route }) => {
     }
 
     const takePicture = async () => {
-        // No distance check - user already passed the check when accepting the job
         if (cameraRef.current && !isProcessing) {
             setIsProcessing(true);
             try {
@@ -418,7 +422,7 @@ const CameraJobScreen = ({ navigation, route }) => {
             ]}>
                 <TouchableOpacity
                     onPress={takePicture}
-                    disabled={isProcessing}
+                    disabled={isProcessing || (distanceToJob !== null && distanceToJob > 10)}
                     activeOpacity={0.8}
                     style={[
                         styles.shutterTouchable,

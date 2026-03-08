@@ -16,7 +16,7 @@ export const EchoModal = ({
 
     const getColor = () => {
         switch (type) {
-            case 'success': return COLORS.primary; // Your neon green
+            case 'success': return COLORS.secondary; // Green
             case 'error': return COLORS.error;
             default: return COLORS.secondary;
         }

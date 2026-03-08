@@ -83,7 +83,6 @@ export const PhotoTimerProvider = ({ children }) => {
         // 3. Existing timer has expired (allow restart)
         if (!existingExpiry || forceReset || Date.now() >= existingExpiry) {
             const expiry = Date.now() + durationSeconds * 1000;
-            console.log('⏱️ PhotoTimerContext: Starting/resetting timer for', key, 'expires at', new Date(expiry).toISOString());
             setTimers(prev => ({
                 ...prev,
                 [key]: expiry
@@ -91,7 +90,6 @@ export const PhotoTimerProvider = ({ children }) => {
             return expiry;
         }
 
-        console.log('⏱️ PhotoTimerContext: Timer already exists for', key, 'expires at', new Date(existingExpiry).toISOString());
         return existingExpiry;
     };
 

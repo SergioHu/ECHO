@@ -87,7 +87,6 @@ export const useSubmitPhoto = () => {
 
             // Upload to Supabase Storage
             setProgress(50);
-            console.log('📸 Uploading photo to storage...', { filename, size: byteArray.length });
 
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from(BUCKET_NAME)
@@ -105,10 +104,6 @@ export const useSubmitPhoto = () => {
             // Get the storage path
             const storagePath = uploadData.path;
             setProgress(70);
-            console.log('✅ Photo uploaded to storage:', storagePath);
-
-            // Call the submit_photo RPC function
-            console.log('📤 Calling submit_photo RPC...', { requestId, storagePath, latitude, longitude });
 
             const { data, error: rpcError } = await supabase.rpc('submit_photo', {
                 p_request_id: requestId,
@@ -116,8 +111,6 @@ export const useSubmitPhoto = () => {
                 p_latitude: latitude,
                 p_longitude: longitude,
             });
-
-            console.log('📥 RPC Response:', { data, error: rpcError });
 
             if (rpcError) {
                 console.error('❌ Error submitting photo RPC:', rpcError);
@@ -128,7 +121,6 @@ export const useSubmitPhoto = () => {
             }
 
             setProgress(100);
-            console.log('✅ Photo submitted successfully:', data);
 
             return { 
                 success: true, 

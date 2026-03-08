@@ -19,6 +19,7 @@ import ExpandedMapModal from './ExpandedMapModal';
 import { openInGoogleMaps } from '../utils/openInGoogleMaps';
 import { useCreateRequest } from '../hooks/useCreateRequest';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 const GOOGLE_API_KEY =
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
@@ -45,6 +46,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
     // Supabase hooks
     const { user } = useAuth();
     const { createRequest, loading: creatingRequest, error: createError } = useCreateRequest();
+    const { showToast } = useToast();
 
     const [description, setDescription] = useState('');
     const [query, setQuery] = useState('');
@@ -190,9 +192,17 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 )}&key=${GOOGLE_API_KEY}&language=en`,
             );
             const data = await response.json();
-            setSuggestions(data.status === 'OK' ? data.predictions : []);
+            if (data.status === 'OK') {
+                setSuggestions(data.predictions);
+            } else {
+                setSuggestions([]);
+                if (data.status === 'REQUEST_DENIED' || data.status === 'INVALID_REQUEST') {
+                    showToast('Location search unavailable', 'error');
+                }
+            }
         } catch (e) {
             setSuggestions([]);
+            showToast('Location search failed', 'error');
         } finally {
             setLoadingSuggestions(false);
         }

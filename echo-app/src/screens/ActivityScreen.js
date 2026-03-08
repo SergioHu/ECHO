@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
-        borderColor: COLORS.cardBg,
+        borderColor: COLORS.surface,
     },
     viewPhotoButton: {
         flexDirection: 'row',

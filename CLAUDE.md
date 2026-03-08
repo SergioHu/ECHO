@@ -1,8 +1,8 @@
 # ECHO — Master Project Context for Claude
 
-**Last Updated:** March 6, 2026
-**Project Status:** Phase 6 Complete + Bug Fixes
-**Version:** 3.2
+**Last Updated:** March 8, 2026
+**Project Status:** Phase 6 Complete + Full QA Audit
+**Version:** 3.3
 
 ---
 
@@ -628,7 +628,7 @@ USING (
 
 ## 17. MIGRATIONS
 
-Latest: `00028_unlock_request.sql`. Next new migration: `00029_...`
+Latest: `00029_performance_and_security_hardening`. Next new migration: `00030_...`
 
 | File | Description |
 |------|-------------|
@@ -659,6 +659,7 @@ Latest: `00028_unlock_request.sql`. Next new migration: `00029_...`
 | `00026` | Fix resolve dispute timer |
 | `00027` | Auto-expire stale open requests |
 | `00028` | `unlock_request` RPC — release locked job on agent back press |
+| `00029` | Performance & security hardening — 4 FK indexes, 13 RLS policies (select auth.uid()), 23 function search_path |
 
 ---
 
@@ -846,6 +847,46 @@ Fix: `tracksViewChanges={true}` on all job markers, matching ExpandedMapModal be
 
 ---
 
+### RESOLVED: Full QA Audit — Production Hardening (March 8, 2026)
+
+**Scope:** Static code audit (`echo-qa-auditor` skill) + Expo MCP build check + Supabase advisor scan + live DB integrity checks.
+
+**Code fixes applied:**
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `MiniMap.js` | `tracksViewChanges={!initialRenderComplete}` — 2s freeze caused blank markers on Android in CameraJobScreen | Changed to `tracksViewChanges={true}` on both markers; removed unused `initialRenderComplete` state + timer `useEffect` |
+| `useCreateRequest.js` | 14 `console.log` calls including user ID, coordinates, price, description | Removed all; kept `console.error` on failure paths |
+| `useSubmitPhoto.js` | 4 `console.log` including `filename`, `storagePath`, `latitude`, `longitude` | Removed |
+| `useViewSession.js` | 4 `console.log` including `photoId` | Removed |
+| `useLockRequest.js` | 2 `console.log` with `requestId` | Removed |
+| `useReportPhoto.js` | 2 `console.log` with `photoId`, `reason` | Removed |
+| `AuthContext.js` | `console.log('Auth event:', event)` on every auth state change | Removed |
+| `PhotoTimerContext.js` | 2 `console.log` on every timer start | Removed |
+| `PhotoViewerScreen.js` | 6 `console.log` including `supabasePhotoId`, expiry timestamps; redundant `setTimeout` verification block | Removed |
+| `DisputesList.js` | 4 `console.log` including `isAdmin` status logged on every render | Removed |
+| `CreateTestJob.js` | `console.log('Location error:')` in catch block | Changed to `console.error` |
+
+**DB fixes applied:**
+- Unlocked 1 stuck `locked` request (id `94c170ca`, locked 3+ days — same user as both creator and agent in a test run). Reset to `status='open'`.
+- Updated 7 photos from `status='viewed'` to `status='expired'` (view sessions had expired 1–3 days prior — auto-cleanup had missed them).
+
+**Migration `00029_performance_and_security_hardening`:**
+- 4 missing FK indexes: `disputes.request_id`, `disputes.resolved_by`, `ledger_entries.dispute_id`, `ledger_entries.photo_id`
+- 13 RLS policies rewritten: `auth.uid()` → `(select auth.uid())` — prevents per-row re-evaluation
+- 23 functions hardened: `SET search_path = public, pg_catalog` — closes search_path injection vector
+
+**False positives / intentional patterns (do NOT change):**
+- `supabase.js` console.logs are inside `if (__DEV__)` — never run in production builds
+- `Alert.alert` in AuthScreen / admin screens — legitimate user-facing error dialogs, not debug spam
+- `latitudeDelta: 0.003` in CreateRequestSheet — this is the **location picker** map, not RadarScreen; tighter zoom is correct UX for pin placement
+- `jobStore.js debugStore()` — explicit utility function, only called manually
+
+**QA Skill:** `echo-app/Skills/echo-qa-auditor/` — run anytime with:
+```bash
+python3 Skills/echo-qa-auditor/scripts/quick_audit.py src/
+```
+
 ### RESOLVED: Stale Rejection Feedback Shown in Activity (March 2026)
 
 Two sub-bugs:
@@ -886,6 +927,7 @@ When a request has both a rejected photo (old) and a validated photo (new), `dis
 - ✅ Bug Fix: Job stuck locked after agent back press — `unlock_request` RPC + `beforeRemove` pattern (March 6, 2026)
 - ✅ Bug Fix: Stale rejection feedback in Activity — `isReopenedAfterRejection` broadened + `!hasPhoto` guard on Admin Feedback block (March 6, 2026)
 - ✅ Bug Fix: Google Places search silent in EAS builds — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` added to `eas.json` env + used as primary source in `CreateRequestSheet.js` (March 6, 2026)
+- ✅ Full QA Audit + Hardening (March 8, 2026) — see §22 for details
 
 ### In Progress
 - 🚧 Stripe Payment Integration

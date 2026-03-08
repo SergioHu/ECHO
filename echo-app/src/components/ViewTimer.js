@@ -108,7 +108,7 @@ const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange }) =>
             <Ionicons
                 name="time"
                 size={14}
-                color={isCritical ? COLORS.error : isWarning ? '#FFC13C' : COLORS.error}
+                color={isCritical ? COLORS.error : isWarning ? '#FFC13C' : COLORS.textPrimary}
             />
             <Text style={[
                 styles.activeText,
@@ -147,14 +147,14 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
 
-    // Active countdown state
+    // Active countdown state (normal — > 30s remaining)
     active: {
-        backgroundColor: 'rgba(255, 46, 46, 0.15)',
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 46, 46, 0.35)',
+        borderColor: 'rgba(255, 255, 255, 0.25)',
     },
     activeText: {
-        color: COLORS.error,
+        color: COLORS.textPrimary,
         fontSize: 15,
         ...FONTS.bold,
         letterSpacing: 0.5,

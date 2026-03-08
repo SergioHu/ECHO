@@ -5,20 +5,23 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     TextInput,
     Alert,
     ActivityIndicator,
     RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import { getMockUsers } from '../../utils/adminHelpers';
 import { useAdminUsers } from '../../hooks';
+import { useToast } from '../../context/ToastContext';
 
 const ManageUsers = ({ navigation }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
+
+    const { showToast } = useToast();
 
     // Supabase hook for real users
     const { users: supabaseUsers, loading, refetch, updateUserRole, isAdmin } = useAdminUsers(searchQuery);
@@ -66,23 +69,29 @@ const ManageUsers = ({ navigation }) => {
     };
 
     const handleUserAction = (action, user) => {
-        const actions = {
-            addStrike: `Add strike to ${user.name}?`,
-            removeStrike: `Remove strike from ${user.name}?`,
-            ban: `Ban ${user.name}? This action cannot be undone easily.`,
-            resetPassword: `Send password reset to ${user.email}?`,
+        const labels = {
+            addStrike: 'Add Strike',
+            removeStrike: 'Remove Strike',
+            ban: 'Ban User',
+            resetPassword: 'Reset Password',
+        };
+        const messages = {
+            addStrike: `Add a strike to ${getUserName(user)}?`,
+            removeStrike: `Remove a strike from ${getUserName(user)}?`,
+            ban: `Ban ${getUserName(user)}? This cannot be undone easily.`,
+            resetPassword: `Send a password reset email to ${user.email}?`,
         };
 
         Alert.alert(
             'Confirm Action',
-            actions[action],
+            messages[action],
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                    text: 'Confirm',
+                    text: labels[action],
                     style: action === 'ban' ? 'destructive' : 'default',
                     onPress: () => {
-                        Alert.alert('Success', `Action completed for ${user.name}`);
+                        showToast('User actions require backend support — coming soon', 'info');
                         setSelectedUser(null);
                     },
                 },

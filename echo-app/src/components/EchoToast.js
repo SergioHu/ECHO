@@ -117,8 +117,8 @@ const styles = StyleSheet.create({
     },
     warningText: {
         flex: 1,
-        flexShrink: 1, // Ensure text shrinks to fit
-        flexWrap: 'wrap', // Ensure text wraps
+        flexShrink: 1,
+        flexWrap: 'wrap',
     },
     glassContainer: {
         flexDirection: 'row',
@@ -147,9 +147,6 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 2,
     },
-    warningText: {
-        flex: 1,
-    }
 });
 
 export default EchoToast;

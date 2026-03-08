@@ -34,9 +34,6 @@ const MOCK_USER = {
     photos: 23,
     rating: 4.9,
     strikes: 0,
-    // Admin flag — SECURITY: Controls access to photo review
-    // TODO: Replace with backend role check (user.role === 'reviewer' || 'admin')
-    isAdmin: true,  // DEV: Set to true for admin testing. In production, this comes from backend role check.
     // Payout readiness flags
     hasPayoutMethod: true,   // User has added a payout method (bank/wallet)
     isVerified: true,        // User has completed identity verification
@@ -124,14 +121,14 @@ const ProfileScreen = ({ navigation }) => {
     const user = useMemo(() => ({
         ...MOCK_USER,
         // Override with real data when available
-        balance: profile?.balance ?? MOCK_USER.balance,
-        photos: profile?.completedJobs ?? MOCK_USER.photos,
-        rating: profile?.reputationScore ?? MOCK_USER.rating,
+        balance: profile?.balance ?? 0,
+        photos: profile?.completedJobs ?? 0,
+        rating: profile?.reputationScore ?? 0,
         displayName: profile?.displayName || authUser?.email?.split('@')[0] || 'User',
         isAgent: profile?.isAgent ?? false,
         isVerified: profile?.agentVerifiedAt != null,
-        // Admin access: check Supabase role, fallback to mock for dev
-        isAdmin: profile?.role === 'reviewer' || profile?.role === 'admin' || MOCK_USER.isAdmin,
+        // Admin access: Supabase role only — no local fallback
+        isAdmin: profile?.role === 'reviewer' || profile?.role === 'admin',
     }), [profile, authUser]);
 
     // Modal state

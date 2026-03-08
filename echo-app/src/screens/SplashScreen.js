@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -181,12 +182,19 @@ const SplashScreen = ({ navigation }) => {
         return () => clearInterval(progressInterval);
     }, []);
 
-    const checkFirstLaunch = () => {
-        // Always go to onboarding on every app launch
-        // Flow: Splash → Onboarding → Auth → MainTabs
-        setTimeout(() => {
-            navigation.replace('Onboarding');
-        }, 500);
+    const checkFirstLaunch = async () => {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            const hasLaunched = await AsyncStorage.getItem('hasLaunched');
+            if (hasLaunched) {
+                navigation.replace('Auth');
+            } else {
+                await AsyncStorage.setItem('hasLaunched', 'true');
+                navigation.replace('Onboarding');
+            }
+        } catch {
+            navigation.replace('Auth');
+        }
     };
 
     const ringScale1 = ring1Anim.interpolate({

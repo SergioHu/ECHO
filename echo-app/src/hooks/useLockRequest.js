@@ -50,7 +50,6 @@ export const useLockRequest = () => {
                 return { success: false, error: alreadyLockedError };
             }
 
-            console.log('Request locked successfully:', requestId);
             return { success: true };
         } catch (err) {
             console.error('Unexpected error locking request:', err);
@@ -91,7 +90,6 @@ export const useLockRequest = () => {
                 return { success: false, error: updateError };
             }
 
-            console.log('Request unlocked:', requestId);
             return { success: true };
         } catch (err) {
             console.error('Unexpected error unlocking request:', err);

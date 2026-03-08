@@ -30,8 +30,6 @@ export const useViewSession = (photoId) => {
             setLoading(true);
             setError(null);
 
-            console.log('📸 Starting view session for photo:', photoId);
-
             // Call the start_view_session RPC function
             // Returns: { photo_id, storage_path, expires_at, already_expired }
             const { data, error: rpcError } = await supabase.rpc('start_view_session', {
@@ -44,8 +42,6 @@ export const useViewSession = (photoId) => {
                 return { error: rpcError };
             }
 
-            console.log('📸 RPC response:', data);
-
             // RPC returns an array with one row
             const sessionData = Array.isArray(data) ? data[0] : data;
 
@@ -57,7 +53,6 @@ export const useViewSession = (photoId) => {
 
             // Check if already expired
             if (sessionData.already_expired) {
-                console.log('⏰ Photo session already expired');
                 setTimeRemaining(0);
                 return { success: false, expired: true };
             }
@@ -75,8 +70,6 @@ export const useViewSession = (photoId) => {
 
             const expiresAt = new Date(sessionData.expires_at);
             const remaining = Math.max(0, expiresAt.getTime() - Date.now());
-
-            console.log('✅ Session started, expires in:', Math.ceil(remaining / 1000), 'seconds');
 
             setSession({
                 photoId,

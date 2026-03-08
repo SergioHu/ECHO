@@ -58,7 +58,8 @@ const JobOfferSheet = ({ job, distance, onClose, onAccept, canAccept = true }) =
 
                 {/* Action Button */}
                 <Pressable
-                    onPress={canAccept ? onAccept : null}
+                    onPress={onAccept}
+                    disabled={!canAccept}
                     style={[styles.acceptButton, !canAccept && styles.acceptButtonDisabled]}
                 >
                     <Text style={[styles.acceptButtonText, !canAccept && styles.acceptButtonTextDisabled]}>

@@ -64,8 +64,6 @@ export const useReportPhoto = () => {
             setLoading(true);
             setError(null);
 
-            console.log('🚨 Reporting photo:', { photoId, reason, description });
-
             const { data, error: rpcError } = await supabase.rpc('report_photo', {
                 p_photo_id: photoId,
                 p_reason: reason,
@@ -77,8 +75,6 @@ export const useReportPhoto = () => {
                 setError(rpcError.message);
                 return { success: false, error: rpcError.message };
             }
-
-            console.log('📥 Report photo response:', data);
 
             if (!data?.success) {
                 const errMsg = data?.error || 'Failed to report photo';

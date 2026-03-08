@@ -19,11 +19,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ScreenCapture from 'expo-screen-capture';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import { useAdminDisputes } from '../../hooks';
+import { useToast } from '../../context/ToastContext';
 
 const DisputeReview = ({ navigation, route }) => {
     const { dispute: rawDispute } = route.params;
     const [adminNotes, setAdminNotes] = useState('');
     const [isResolving, setIsResolving] = useState(false);
+
+    const { showToast } = useToast();
 
     // Supabase hook for resolving disputes
     const { resolveDispute, isAdmin } = useAdminDisputes();
@@ -93,15 +96,15 @@ const DisputeReview = ({ navigation, route }) => {
                                     false // p_reject = false = approve
                                 );
                                 if (!success) {
-                                    Alert.alert('Error', error?.message || 'Failed to approve');
+                                    showToast(error?.message || 'Failed to approve', 'error');
                                     return;
                                 }
                             }
-                            Alert.alert('Photo Approved', 'Photographer paid. Requester can view the photo.');
+                            showToast('Photo approved — photographer paid', 'success');
                             // Navigate back with refresh flag to update the list
                             navigation.navigate('DisputesList', { refresh: true, switchToResolved: true });
                         } catch (err) {
-                            Alert.alert('Error', 'Failed to approve dispute');
+                            showToast('Failed to approve dispute', 'error');
                         } finally {
                             setIsResolving(false);
                         }
@@ -130,15 +133,15 @@ const DisputeReview = ({ navigation, route }) => {
                                     true // p_reject = true = reject photo, return to map
                                 );
                                 if (!success) {
-                                    Alert.alert('Error', error?.message || 'Failed to reject');
+                                    showToast(error?.message || 'Failed to reject', 'error');
                                     return;
                                 }
                             }
-                            Alert.alert('Photo Rejected', 'Job returned to map. Awaiting new photographer.');
+                            showToast('Photo rejected — job returned to map', 'info');
                             // Navigate back with refresh flag to update the list
                             navigation.navigate('DisputesList', { refresh: true, switchToResolved: true });
                         } catch (err) {
-                            Alert.alert('Error', 'Failed to reject dispute');
+                            showToast('Failed to reject dispute', 'error');
                         } finally {
                             setIsResolving(false);
                         }
@@ -294,7 +297,7 @@ const DisputeReview = ({ navigation, route }) => {
                             <View>
                                 <Text style={styles.rejectButtonText}>REJECT PHOTO</Text>
                                 <Text style={styles.buttonSubtext}>
-                                    Refund to requester, strike to photographer
+                                    Photographer forfeits €0.40, no refund to requester
                                 </Text>
                             </View>
                         </View>

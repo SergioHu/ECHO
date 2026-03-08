@@ -52,33 +52,18 @@ const PhotoViewerScreen = ({ route, navigation }) => {
 
     useEffect(() => {
         if (supabasePhotoId && !sessionStartedRef.current) {
-            console.log('🔐 Starting Supabase view session for:', supabasePhotoId);
             sessionStartedRef.current = true;
 
             startSession().then(result => {
                 if (result.error) {
-                    console.error('❌ Failed to start view session:', result.error);
+                    console.error('Failed to start view session:', result.error);
                     showToast('Failed to load photo', 'error');
                 } else if (result.expired) {
-                    console.log('⏰ Photo already expired');
                     handleExpiration();
                 } else {
-                    console.log('✅ View session started, expires at:', result.expiresAt);
-                    // Store expiry for local countdown
                     setSessionExpiry(result.expiresAt);
-                    // Also start local timer for ViewTimer component sync
-                    // Use supabasePhotoId as key so each new photo gets its own timer
-                    // Force reset to ensure fresh timer from backend expiry
                     const secondsRemaining = Math.max(0, Math.ceil((result.expiresAt.getTime() - Date.now()) / 1000));
-                    console.log('⏱️ Timer starting with', secondsRemaining, 'seconds for photoId:', supabasePhotoId);
-                    const newExpiry = startTimer(supabasePhotoId, secondsRemaining, true);
-                    console.log('⏱️ Timer started, new expiry:', new Date(newExpiry).toISOString());
-
-                    // Verify the timer was stored
-                    setTimeout(() => {
-                        const storedExpiry = getExpiry(supabasePhotoId);
-                        console.log('⏱️ Verification - stored expiry:', storedExpiry ? new Date(storedExpiry).toISOString() : 'NULL');
-                    }, 100);
+                    startTimer(supabasePhotoId, secondsRemaining, true);
                 }
             });
         }
@@ -161,7 +146,6 @@ const PhotoViewerScreen = ({ route, navigation }) => {
                 ]);
                 setIsProtected(true);
             } catch (error) {
-                console.log("Screen capture protection issue:", error);
                 // Fallback: Show image anyway after timeout/error so user isn't stuck
                 setIsProtected(true);
             }
@@ -205,7 +189,7 @@ const PhotoViewerScreen = ({ route, navigation }) => {
                 return true;
             }
             if (hasExpired) {
-                return true; // Block back button if expired (waiting for auto-close)
+                return false; // Allow back navigation — auto-close timer handles the transition
             }
             // Allow normal back navigation!
             return false;

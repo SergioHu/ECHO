@@ -1,0 +1,95 @@
+{
+  "skill_name": "echo-frontend-inspector",
+  "version": "1.0",
+  "description": "Evaluation cases for the echo-frontend-inspector skill.",
+  "cases": [
+    {
+      "id": "eval-001",
+      "name": "Core flow inspection — RadarScreen + CameraJobScreen",
+      "prompt": "Inspect the RadarScreen and CameraJobScreen for UI/UX issues. Focus on map markers, the shutter button guard, and the back-press unlock pattern.",
+      "expected_findings": [
+        "tracksViewChanges check applied to both screens",
+        "Shutter disabled-state check reported",
+        "beforeRemove / unlock_request pattern verified on CameraJobScreen",
+        "latitudeDelta zoom level checked on RadarScreen"
+      ],
+      "must_not_report": [
+        "False positive on supabase.js __DEV__ console.logs",
+        "False positive on Alert.alert confirmation dialogs"
+      ]
+    },
+    {
+      "id": "eval-002",
+      "name": "Form validation — CreateRequestSheet + AuthScreen",
+      "prompt": "Inspect CreateRequestSheet and AuthScreen for form validation, keyboard handling, and missing loading states.",
+      "expected_findings": [
+        "keyboardShouldPersistTaps check on ScrollView",
+        "KeyboardAvoidingView presence verified",
+        "Submit button loading state checked",
+        "Required field validation verified (location required, email required)"
+      ],
+      "must_not_report": []
+    },
+    {
+      "id": "eval-003",
+      "name": "Visual consistency — full src/ sweep",
+      "prompt": "Run a full visual consistency check across all screens. Report hardcoded hex colours, missing SafeAreaView, and any debug text visible in JSX.",
+      "expected_findings": [
+        "Hardcoded hex colours flagged",
+        "SafeAreaView presence checked on all screens",
+        "Placeholder/TODO text scanned and reported if found",
+        "Theme constant usage verified"
+      ],
+      "must_not_report": [
+        "AlignmentMiniMap local color palette — this is a named constant object, not a hardcoded value in a style"
+      ]
+    },
+    {
+      "id": "eval-004",
+      "name": "Android bridge safety — coordinates and dimensions",
+      "prompt": "Check every screen for coordinates or dimensions passed to native components without parseFloat(). Flag any Number() usage on bridge props.",
+      "expected_findings": [
+        "All latitude/longitude props inspected",
+        "parseFloat() wrapping verified",
+        "Number() anti-pattern flagged if found"
+      ],
+      "must_not_report": [
+        "Literal number values like latitude={38.7} — these are already correct"
+      ]
+    },
+    {
+      "id": "eval-005",
+      "name": "PhotoViewerScreen — ephemeral security check",
+      "prompt": "Inspect PhotoViewerScreen for screenshot blocking, the 3-minute timer, and the view session start flow.",
+      "expected_findings": [
+        "ScreenCapture.preventScreenCaptureAsync() in useEffect verified",
+        "Cleanup ScreenCapture.allowScreenCaptureAsync() in useEffect return verified",
+        "startSession() called on mount for supabasePhotoId",
+        "Timer initialised from backend expiry (not hardcoded 180s)",
+        "Expired state handled (already_expired flag)"
+      ],
+      "must_not_report": []
+    },
+    {
+      "id": "eval-006",
+      "name": "Admin panel role guard",
+      "prompt": "Check all admin screens to verify they are role-gated. Report any admin screen that can be accessed without an admin role check.",
+      "expected_findings": [
+        "Each admin screen checks profile.role or isAdmin before rendering content",
+        "Admin-only navigation items in ProfileScreen are conditionally rendered"
+      ],
+      "must_not_report": []
+    },
+    {
+      "id": "eval-007",
+      "name": "Empty states and error handling",
+      "prompt": "Check ActivityScreen, RadarScreen, and all admin list screens for empty state messages and network error handling.",
+      "expected_findings": [
+        "Empty state UI present when job list is empty",
+        "Empty state UI present when activity list is empty",
+        "RPC error caught and shown to user (toast or inline message) — not swallowed"
+      ],
+      "must_not_report": []
+    }
+  ]
+}

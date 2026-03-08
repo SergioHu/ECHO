@@ -288,14 +288,26 @@ const RadarScreen = ({ navigation }) => {
                 mapRef.current.animateToRegion({
                     latitude: currentLocation.coords.latitude,
                     longitude: currentLocation.coords.longitude,
-                    latitudeDelta: 0.00015,
-                    longitudeDelta: 0.00015,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
                 }, 450);
             }
         } catch (error) {
             console.error('[RadarScreen] Error centering on user:', error);
         }
     };
+
+    if (errorMsg) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Ionicons name="location-off" size={48} color={COLORS.textSecondary} />
+                <Text style={{ color: COLORS.text, fontSize: 18, marginTop: 16, textAlign: 'center' }}>Location Access Required</Text>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 32 }}>
+                    Enable location permission in Settings to see nearby requests.
+                </Text>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -421,6 +433,13 @@ const RadarScreen = ({ navigation }) => {
             <View style={styles.centerMarkerContainer} pointerEvents="none">
                 <MapCrosshair />
             </View>
+
+            {/* EMPTY STATE — no nearby requests */}
+            {location && supabaseRequests && supabaseRequests.length === 0 && testJobs.length === 0 && (
+                <View style={styles.emptyStateContainer} pointerEvents="none">
+                    <Text style={styles.emptyStateText}>No requests nearby</Text>
+                </View>
+            )}
 
             {/* ADDRESS INFO PILL */}
             <View style={styles.addressPillContainer} pointerEvents="none">
@@ -675,6 +694,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         ...FONTS.bold,
         textAlign: 'center',
+    },
+    emptyStateContainer: {
+        position: 'absolute',
+        bottom: 160,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(30,30,30,0.85)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    emptyStateText: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
     },
     loadingContainer: {
         flex: 1,

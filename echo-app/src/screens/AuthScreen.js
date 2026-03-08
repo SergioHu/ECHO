@@ -14,11 +14,11 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
-    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { COLORS, SPACING } from '../constants/theme';
 
 const AuthScreen = ({ navigation }) => {
@@ -31,20 +31,21 @@ const AuthScreen = ({ navigation }) => {
     const [localLoading, setLocalLoading] = useState(false);
 
     const { signIn, signUp, loading } = useAuth();
+    const { showToast } = useToast();
 
     const handleSubmit = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showToast('Please fill in all fields', 'error');
             return;
         }
 
         if (!isLogin && password !== confirmPassword) {
-            Alert.alert('Error', 'Passwords do not match');
+            showToast('Passwords do not match', 'error');
             return;
         }
 
         if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+            showToast('Password must be at least 6 characters', 'error');
             return;
         }
 
@@ -54,26 +55,23 @@ const AuthScreen = ({ navigation }) => {
             if (isLogin) {
                 const { error } = await signIn(email, password);
                 if (error) {
-                    Alert.alert('Login Error', error.message);
+                    showToast(error.message, 'error');
                 } else {
                     navigation.replace('MainTabs');
                 }
             } else {
                 const { error, data } = await signUp(email, password);
                 if (error) {
-                    Alert.alert('Sign Up Error', error.message);
+                    showToast(error.message, 'error');
                 } else if (data?.user?.identities?.length === 0) {
-                    Alert.alert('Email already registered', 'This email is already registered. Try logging in.');
+                    showToast('This email is already registered. Try logging in.', 'error');
                 } else {
-                    Alert.alert(
-                        'Sign Up Successful',
-                        'Please check your email to confirm your account.',
-                        [{ text: 'OK', onPress: () => setIsLogin(true) }]
-                    );
+                    showToast('Check your email to confirm your account.', 'success');
+                    setIsLogin(true);
                 }
             }
         } catch (err) {
-            Alert.alert('Error', 'An unexpected error occurred');
+            showToast('An unexpected error occurred', 'error');
         } finally {
             setLocalLoading(false);
         }

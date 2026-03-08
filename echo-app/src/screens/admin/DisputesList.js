@@ -36,13 +36,11 @@ const DisputesList = ({ navigation, route }) => {
     // Handle navigation params for refresh and tab switching after resolving dispute
     useEffect(() => {
         if (route.params?.refresh) {
-            console.log('🔄 DisputesList - Setting refresh flag from navigation...');
             setNeedsRefresh(true);
             // Clear the param to avoid re-fetching on subsequent renders
             navigation.setParams({ refresh: undefined });
         }
         if (route.params?.switchToResolved) {
-            console.log('📋 DisputesList - Switching to Resolved tab...');
             setFilter('resolved');
             navigation.setParams({ switchToResolved: undefined });
         }
@@ -52,15 +50,11 @@ const DisputesList = ({ navigation, route }) => {
     useFocusEffect(
         useCallback(() => {
             if (needsRefresh) {
-                console.log('🔄 DisputesList - Screen focused, refreshing disputes...');
                 refetch();
                 setNeedsRefresh(false);
             }
         }, [needsRefresh, refetch])
     );
-
-    // Debug logging
-    console.log('📋 DisputesList - isAdmin:', isAdmin, 'supabaseDisputes:', supabaseDisputes?.length, 'error:', error?.message);
 
     // Only use Supabase data when admin - NO mock data fallback
     const disputes = isAdmin ? supabaseDisputes : [];
@@ -174,9 +168,9 @@ const DisputesList = ({ navigation, route }) => {
                         <Ionicons name="arrow-back" size={28} color={COLORS.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Disputes</Text>
-                    <TouchableOpacity style={styles.filterButton}>
+                    <View style={styles.filterButton}>
                         <Text style={styles.filterText}>Filter ▼</Text>
-                    </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Filter Tabs */}

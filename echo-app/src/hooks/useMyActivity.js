@@ -109,7 +109,7 @@ export const useMyActivity = () => {
                                     .from('echo-photos')
                                     .createSignedUrl(photo.storage_path, SIGNED_URL_DURATION);
                                 if (urlError) {
-                                    console.error('❌ Signed URL error:', urlError);
+                                    console.error('Signed URL error:', urlError);
                                 } else {
                                     photoUrl = urlData?.signedUrl || null;
                                 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Circle } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,16 +7,10 @@ import { DARK_MAP_STYLE } from '../constants/mapStyle';
 
 const MiniMap = ({ job, userLocation, headingAnim }) => {
     const mapRef = useRef(null);
-    const [mapReady, setMapReady] = useState(false);
-    const [initialRenderComplete, setInitialRenderComplete] = useState(false);
+    const [mapReady, setMapReady] = React.useState(false);
 
-    // Desabilitar tracksViewChanges após 2 segundos para melhor performance
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setInitialRenderComplete(true);
-        }, 2000);
-        return () => clearTimeout(timer);
-    }, []);
+    // tracksViewChanges must stay true — freezing after N ms causes blank markers
+    // on Android when GPS + fetch take longer than the freeze window (CLAUDE.md §19)
 
     // Memoizar região inicial para evitar recálculos
     const initialRegion = useMemo(() => {
@@ -112,7 +106,7 @@ const MiniMap = ({ job, userLocation, headingAnim }) => {
                     key={`job-marker-${job.id}`}
                     coordinate={{ latitude: parseFloat(job.lat), longitude: parseFloat(job.lng) }}
                     anchor={{ x: 0.5, y: 0.5 }}
-                    tracksViewChanges={!initialRenderComplete}
+                    tracksViewChanges={true}
                     zIndex={100}
                 >
                     <View style={styles.jobMarker}>
@@ -132,7 +126,7 @@ const MiniMap = ({ job, userLocation, headingAnim }) => {
                         }}
                         anchor={{ x: 0.5, y: 0.5 }}
                         flat={true}
-                        tracksViewChanges={!initialRenderComplete}
+                        tracksViewChanges={true}
                         zIndex={200}
                     >
                         <View style={styles.userWrapper}>

@@ -5,10 +5,10 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    SafeAreaView,
     RefreshControl,
     ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING } from '../../constants/theme';
 import { getMockAnalytics } from '../../utils/adminHelpers';
@@ -57,9 +57,9 @@ const Analytics = ({ navigation }) => {
                         <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Analytics</Text>
-                    <TouchableOpacity style={styles.periodButton}>
+                    <View style={styles.periodButton}>
                         <Text style={styles.periodText}>📅 {period}</Text>
-                    </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Period Selector */}
