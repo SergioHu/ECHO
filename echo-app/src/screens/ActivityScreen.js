@@ -148,13 +148,7 @@ const ActivityScreen = () => {
             // Photo ID for Supabase view session
             const supabasePhotoId = item.isSupabase ? item.photoId : null;
 
-            // Check if under dispute or has resolved dispute
-            const isDisputed = item.status === 'disputed';
-            const hasResolvedDispute = item.dispute &&
-                (item.dispute.status === 'resolved_creator' || item.dispute.status === 'resolved_agent');
-            const disputeResolutionNotes = item.dispute?.resolutionNotes || null;
-
-            // Check if photo was rejected by admin
+            // Check if photo was rejected (admin rejected the submission — job goes back to map)
             const isPhotoRejected = item.isPhotoRejected || item.photoStatus === 'rejected';
 
             // Timer ID for ViewTimer component
@@ -181,48 +175,24 @@ const ActivityScreen = () => {
             const isSessionFresh = item.isSupabase && sessionNotStarted;
 
             // Status colors and text based on state
+            // Dispute information is never shown to end users — disputes are admin-only.
+            // From the requester's perspective: either they have a photo to view, it expired, or they're waiting.
             let statusColor, statusBgColor, statusText, statusIcon;
 
-            // Check if dispute was approved (agent won) - photo was valid
-            const disputeApproved = hasResolvedDispute && item.dispute.status === 'resolved_agent';
-            // Check if dispute was rejected (creator won) - photo was rejected
-            const disputeRejected = hasResolvedDispute && item.dispute.status === 'resolved_creator';
-
-            if (isPhotoRejected) {
-                // Photo was rejected by admin - show rejection status
-                statusColor = COLORS.error;
-                statusBgColor = 'rgba(255, 68, 68, 0.15)';
-                statusText = 'PHOTO REJECTED';
-                statusIcon = 'close-circle';
-            } else if (isDisputed) {
-                statusColor = COLORS.error;
-                statusBgColor = 'rgba(255, 68, 68, 0.15)';
-                statusText = 'UNDER REVIEW';
-                statusIcon = 'alert-circle';
-            } else if (disputeRejected) {
-                // Creator won dispute - photo was rejected, job reopened
-                statusColor = COLORS.secondary;
-                statusBgColor = 'rgba(0, 230, 255, 0.15)';
-                statusText = 'DISPUTE RESOLVED';
-                statusIcon = 'checkmark-circle';
-            } else if (isTimerExpired && hasPhoto) {
-                // Photo expired - same status whether or not it went through dispute
+            if (hasPhoto && !isPhotoRejected && isTimerExpired) {
+                // Photo was delivered and viewed, but the viewing window has closed
                 statusColor = COLORS.error;
                 statusBgColor = 'rgba(255, 68, 68, 0.12)';
                 statusText = 'PHOTO EXPIRED';
                 statusIcon = 'close-circle';
-            } else if (disputeApproved) {
-                // Agent won dispute - photo approved but not yet expired
-                statusColor = COLORS.secondary;
-                statusBgColor = 'rgba(0, 230, 255, 0.15)';
-                statusText = 'PHOTO APPROVED';
-                statusIcon = 'checkmark-circle';
-            } else if (hasPhoto) {
+            } else if (hasPhoto && !isPhotoRejected) {
+                // Photo is available to view (covers normal delivery and admin-approved cases)
                 statusColor = COLORS.secondary;
                 statusBgColor = 'rgba(0, 230, 255, 0.15)';
                 statusText = 'PHOTO DELIVERED';
                 statusIcon = 'checkmark-circle';
             } else {
+                // All other states: open, locked, disputed (admin handling), or rejected photo (new agent incoming)
                 statusColor = '#FFC13C';
                 statusBgColor = 'rgba(255, 193, 60, 0.15)';
                 statusText = 'WAITING FOR PHOTO';
@@ -285,8 +255,8 @@ const ActivityScreen = () => {
                                     {statusText}
                                 </Text>
                             </View>
-                            {/* Timer - only show when photo is delivered, not disputed, and not expired */}
-                            {hasPhoto && !isDisputed && !isTimerExpired && (
+                            {/* Timer - only show when photo is delivered and not expired */}
+                            {hasPhoto && !isPhotoRejected && !isTimerExpired && (
                                 <ViewTimer
                                     jobId={timerId}
                                     expiryTimestamp={viewSessionExpiresAt ? new Date(viewSessionExpiresAt).getTime() : null}
@@ -295,38 +265,21 @@ const ActivityScreen = () => {
                             )}
                         </View>
 
-                        {/* Photo Rejection Notice - show when photo was rejected */}
+                        {/* Photo back on map notice - shown when the submitted photo was rejected */}
                         {isPhotoRejected && (
                             <View style={styles.rejectionNoticeContainer}>
                                 <View style={styles.rejectionNoticeHeader}>
-                                    <Ionicons name="alert-circle" size={14} color={COLORS.error} />
-                                    <Text style={styles.rejectionNoticeLabel}>Photo Rejected</Text>
+                                    <Ionicons name="refresh-circle" size={14} color='#FFC13C' />
+                                    <Text style={styles.rejectionNoticeLabel}>Looking for a new photographer</Text>
                                 </View>
                                 <Text style={styles.rejectionNoticeText}>
-                                    {disputeResolutionNotes
-                                        ? `"${disputeResolutionNotes.replace(/^(approved|rejected):\s*/i, '')}"`
-                                        : 'The submitted photo did not meet requirements. Job is back on the map for another photographer.'}
+                                    The submitted photo did not meet requirements. Your request is back on the map.
                                 </Text>
                             </View>
                         )}
 
-                        {/* Admin Resolution Notes - show when dispute was resolved (even if timer expired).
-                            Hidden when a valid photo is present — requester has their photo, the old
-                            rejection feedback is irrelevant and confusing. */}
-                        {(disputeApproved || disputeRejected) && disputeResolutionNotes && !isPhotoRejected && !hasPhoto && (
-                            <View style={styles.adminNotesContainer}>
-                                <View style={styles.adminNotesHeader}>
-                                    <Ionicons name="chatbubble-ellipses" size={14} color={COLORS.textSecondary} />
-                                    <Text style={styles.adminNotesLabel}>Admin Feedback:</Text>
-                                </View>
-                                <Text style={styles.adminNotesText}>
-                                    "{disputeResolutionNotes.replace(/^(approved|rejected):\s*/i, '')}"
-                                </Text>
-                            </View>
-                        )}
-
-                        {/* VIEW PHOTO button - only show when photo is delivered, not disputed, not rejected, and not expired */}
-                        {hasPhoto && photoUrl && !isDisputed && !isPhotoRejected && !isTimerExpired && (
+                        {/* VIEW PHOTO button - shown when photo is available and not expired */}
+                        {hasPhoto && photoUrl && !isPhotoRejected && !isTimerExpired && (
                             <TouchableOpacity
                                 style={styles.viewPhotoButtonLarge}
                                 onPress={() => {
@@ -392,10 +345,10 @@ const ActivityScreen = () => {
                     priceLabel = 'Earned:';
                     break;
                 case 'disputed':
-                    // Photo was reported, under admin review
-                    statusColor = COLORS.error;
-                    statusText = 'Under Review';
-                    statusIcon = 'alert-circle';
+                    // Photo is under admin review — shown to agent as pending payment (dispute is internal)
+                    statusColor = COLORS.primary;
+                    statusText = 'Awaiting Payment';
+                    statusIcon = 'time';
                     priceLabel = 'Pending:';
                     break;
                 case 'rejected':
@@ -442,32 +395,6 @@ const ActivityScreen = () => {
                                 <Text style={[styles.statusTextLarge, { color: statusColor }]}>{statusText}</Text>
                             </View>
                         </View>
-
-                        {/* Admin feedback for rejected photos */}
-                        {(item.status === 'rejected' || item.disputeStatus === 'resolved_creator') && item.adminFeedback && (
-                            <View style={[styles.adminNotesContainer, { borderLeftColor: COLORS.error }]}>
-                                <View style={styles.adminNotesHeader}>
-                                    <Ionicons name="information-circle" size={14} color={COLORS.error} />
-                                    <Text style={[styles.adminNotesLabel, { color: COLORS.error }]}>Rejection Reason:</Text>
-                                </View>
-                                <Text style={styles.adminNotesText}>
-                                    "{item.adminFeedback.replace(/^(approved|rejected):\s*/i, '')}"
-                                </Text>
-                            </View>
-                        )}
-
-                        {/* Admin feedback for approved disputes */}
-                        {item.disputeStatus === 'resolved_agent' && item.adminFeedback && item.status !== 'rejected' && (
-                            <View style={styles.adminNotesContainer}>
-                                <View style={styles.adminNotesHeader}>
-                                    <Ionicons name="checkmark-circle" size={14} color={COLORS.secondary} />
-                                    <Text style={[styles.adminNotesLabel, { color: COLORS.secondary }]}>Admin Approved:</Text>
-                                </View>
-                                <Text style={styles.adminNotesText}>
-                                    "{item.adminFeedback.replace(/^(approved|rejected):\s*/i, '')}"
-                                </Text>
-                            </View>
-                        )}
 
                         <Text style={styles.date}>
                             {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Recent'}

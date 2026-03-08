@@ -288,8 +288,8 @@ const RadarScreen = ({ navigation }) => {
                 mapRef.current.animateToRegion({
                     latitude: currentLocation.coords.latitude,
                     longitude: currentLocation.coords.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
+                    latitudeDelta: 0.004,
+                    longitudeDelta: 0.004,
                 }, 450);
             }
         } catch (error) {
