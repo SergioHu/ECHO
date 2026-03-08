@@ -283,8 +283,8 @@ const RadarScreen = ({ navigation }) => {
                 mapRef.current.animateToRegion({
                     latitude: location.coords.latitude,
                     longitude: location.coords.longitude,
-                    latitudeDelta: 0.004,
-                    longitudeDelta: 0.004,
+                    latitudeDelta: 0.0005,
+                    longitudeDelta: 0.0005,
                 }, 450);
             }
 
@@ -299,8 +299,8 @@ const RadarScreen = ({ navigation }) => {
                 mapRef.current.animateToRegion({
                     latitude: currentLocation.coords.latitude,
                     longitude: currentLocation.coords.longitude,
-                    latitudeDelta: 0.004,
-                    longitudeDelta: 0.004,
+                    latitudeDelta: 0.0005,
+                    longitudeDelta: 0.0005,
                 }, 300);
             }
         } catch (error) {
