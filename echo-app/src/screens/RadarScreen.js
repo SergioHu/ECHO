@@ -278,6 +278,17 @@ const RadarScreen = ({ navigation }) => {
         try {
             Vibration.vibrate(50);
 
+            // Snap to last known position immediately for instant feedback
+            if (location?.coords && mapRef.current) {
+                mapRef.current.animateToRegion({
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                    latitudeDelta: 0.004,
+                    longitudeDelta: 0.004,
+                }, 450);
+            }
+
+            // Then refine with fresh GPS in the background
             const currentLocation = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.High,
             });
@@ -290,7 +301,7 @@ const RadarScreen = ({ navigation }) => {
                     longitude: currentLocation.coords.longitude,
                     latitudeDelta: 0.004,
                     longitudeDelta: 0.004,
-                }, 450);
+                }, 300);
             }
         } catch (error) {
             console.error('[RadarScreen] Error centering on user:', error);
