@@ -175,11 +175,18 @@ const ActivityScreen = () => {
             const isSessionFresh = item.isSupabase && sessionNotStarted;
 
             // Status colors and text based on state
-            // Dispute information is never shown to end users — disputes are admin-only.
-            // From the requester's perspective: either they have a photo to view, it expired, or they're waiting.
+            // "dispute" wording never shown to end users — use "Under Review" instead.
             let statusColor, statusBgColor, statusText, statusIcon;
 
-            if (hasPhoto && !isPhotoRejected && isTimerExpired) {
+            const isDisputed = item.status === 'disputed';
+
+            if (isDisputed) {
+                // Photo was reported and is under admin review
+                statusColor = '#FF9500';
+                statusBgColor = 'rgba(255, 149, 0, 0.15)';
+                statusText = 'UNDER REVIEW';
+                statusIcon = 'time';
+            } else if (hasPhoto && !isPhotoRejected && isTimerExpired) {
                 // Photo was delivered and viewed, but the viewing window has closed
                 statusColor = COLORS.error;
                 statusBgColor = 'rgba(255, 68, 68, 0.12)';
@@ -192,7 +199,7 @@ const ActivityScreen = () => {
                 statusText = 'PHOTO DELIVERED';
                 statusIcon = 'checkmark-circle';
             } else {
-                // All other states: open, locked, disputed (admin handling), or rejected photo (new agent incoming)
+                // All other states: open, locked, or rejected photo (new agent incoming)
                 statusColor = '#FFC13C';
                 statusBgColor = 'rgba(255, 193, 60, 0.15)';
                 statusText = 'WAITING FOR PHOTO';
@@ -204,8 +211,8 @@ const ActivityScreen = () => {
                     <View style={styles.cardContent}>
                         {/* Top row with thumbnail/icon and info */}
                         <View style={styles.cardTopRow}>
-                            {/* Show photo thumbnail if delivered and NOT expired, otherwise show icon */}
-                            {hasPhoto && photoUrl && !isTimerExpired ? (
+                            {/* Show photo thumbnail if delivered, NOT expired, and NOT under review */}
+                            {hasPhoto && photoUrl && !isTimerExpired && !isDisputed ? (
                                 <View style={styles.photoThumbContainer}>
                                     <Image
                                         source={{
@@ -261,6 +268,7 @@ const ActivityScreen = () => {
                                     jobId={timerId}
                                     expiryTimestamp={viewSessionExpiresAt ? new Date(viewSessionExpiresAt).getTime() : null}
                                     onExpired={() => handleTimerExpired(timerId)}
+                                    frozen={isDisputed}
                                 />
                             )}
                         </View>
@@ -278,8 +286,8 @@ const ActivityScreen = () => {
                             </View>
                         )}
 
-                        {/* VIEW PHOTO button - shown when photo is available and not expired */}
-                        {hasPhoto && photoUrl && !isPhotoRejected && !isTimerExpired && (
+                        {/* VIEW PHOTO button - shown when photo is available and not expired and not under review */}
+                        {hasPhoto && photoUrl && !isPhotoRejected && !isTimerExpired && !isDisputed && (
                             <TouchableOpacity
                                 style={styles.viewPhotoButtonLarge}
                                 onPress={() => {

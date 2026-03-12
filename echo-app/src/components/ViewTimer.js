@@ -28,8 +28,8 @@ const INITIAL_DURATION = 180;
  * - onExpired: Optional callback when timer expires
  * - onTimerStateChange: Optional callback with timer state { isExpired, isActive, timeLeft }
  */
-const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange }) => {
-    // We observe 'timers' directly to re-render when timers change
+const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange, frozen }) => {
+    // ALL hooks must run unconditionally before any return — Rules of Hooks
     const { timers } = usePhotoTimer();
     const expiredNotified = React.useRef(false);
     const [tick, setTick] = useState(0); // Force re-render every second
@@ -37,7 +37,7 @@ const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange }) =>
     // Get the current expiry - prefer prop, then context
     const timerKey = jobId ? String(jobId) : null;
     const contextExpiry = timerKey ? timers[timerKey] : null;
-    const currentExpiry = expiryTimestamp || contextExpiry; // Prop takes precedence
+    const currentExpiry = expiryTimestamp || contextExpiry;
 
     // Calculate time left directly (not from state)
     const now = Date.now();
@@ -45,24 +45,24 @@ const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange }) =>
     const timerActive = !!currentExpiry;
     const hasExpired = timerActive && timeLeft <= 0;
 
-    // Countdown interval - tick every second to force re-render
+    // Countdown interval - skip when frozen (no need to tick)
     useEffect(() => {
-        if (!timerActive || hasExpired) return;
+        if (frozen || !timerActive || hasExpired) return;
 
         const intervalId = setInterval(() => {
-            setTick(t => t + 1); // Force re-render
+            setTick(t => t + 1);
         }, 1000);
 
         return () => clearInterval(intervalId);
-    }, [timerActive, hasExpired]);
+    }, [frozen, timerActive, hasExpired]);
 
     // Handle expiration callback
     useEffect(() => {
-        if (hasExpired && !expiredNotified.current) {
+        if (!frozen && hasExpired && !expiredNotified.current) {
             expiredNotified.current = true;
             onExpired?.();
         }
-    }, [hasExpired, onExpired]);
+    }, [frozen, hasExpired, onExpired]);
 
     // Notify state changes
     useEffect(() => {
@@ -76,6 +76,18 @@ const ViewTimer = ({ jobId, expiryTimestamp, onExpired, onTimerStateChange }) =>
     // Determine warning states
     const isWarning = timerActive && timeLeft <= 30 && timeLeft > 10 && !hasExpired;
     const isCritical = timerActive && timeLeft <= 10 && !hasExpired;
+
+    // All hooks done — now handle conditional rendering
+
+    // Frozen state (photo reported / under review) — checked after all hooks
+    if (frozen) {
+        return (
+            <View style={[styles.container, styles.frozen]}>
+                <Ionicons name="time-outline" size={14} color="#FF9500" />
+                <Text style={styles.frozenText}>UNDER REVIEW</Text>
+            </View>
+        );
+    }
 
     // Expired state
     if (hasExpired) {
@@ -187,6 +199,19 @@ const styles = StyleSheet.create({
     expiredText: {
         color: COLORS.error,
         fontSize: 13,
+        ...FONTS.bold,
+        letterSpacing: 0.5,
+    },
+
+    // Frozen state (photo reported / under review)
+    frozen: {
+        backgroundColor: 'rgba(255, 149, 0, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 149, 0, 0.35)',
+    },
+    frozenText: {
+        color: '#FF9500',
+        fontSize: 12,
         ...FONTS.bold,
         letterSpacing: 0.5,
     },

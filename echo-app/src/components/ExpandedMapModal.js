@@ -13,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DARK_MAP_STYLE } from '../constants/mapStyle';
 import { COLORS, FONTS } from '../constants/theme';
-import { openInGoogleMaps } from '../utils/openInGoogleMaps';
 import MapCrosshair from './MapCrosshair';
 import { getTestJobs, subscribe } from '../store/jobStore';
 import { useNearbyRequests } from '../hooks';
@@ -24,6 +23,9 @@ const ExpandedMapModal = ({ visible, initialLocation, userLocation, onConfirm, o
     const mapRef = useRef(null);
     const [currentLocation, setCurrentLocation] = useState(initialLocation);
     const [testJobs, setTestJobs] = useState([]);
+    const [isSatellite, setIsSatellite] = useState(false);
+    // Track full region (lat/lng + zoom deltas) so toggle never moves the map
+    const currentRegionRef = useRef(null);
 
     // Get nearby requests from Supabase (same source as RadarScreen)
     const {
@@ -45,23 +47,46 @@ const ExpandedMapModal = ({ visible, initialLocation, userLocation, onConfirm, o
         return () => unsubscribe();
     }, []);
 
+    // Reset satellite mode when modal closes, so next open starts in dark map
+    useEffect(() => {
+        if (!visible) {
+            setIsSatellite(false);
+            currentRegionRef.current = null;
+        }
+    }, [visible]);
+
     // Update location when modal opens with new initial location
     useEffect(() => {
         if (visible && initialLocation) {
             setCurrentLocation(initialLocation);
-            mapRef.current?.animateToRegion({
+            const region = {
                 ...initialLocation,
                 latitudeDelta: 0.005,
                 longitudeDelta: 0.005,
-            }, 300);
+            };
+            currentRegionRef.current = region;
+            mapRef.current?.animateToRegion(region, 300);
         }
     }, [visible, initialLocation]);
 
     const handleRegionChangeComplete = (region) => {
+        currentRegionRef.current = region;
         setCurrentLocation({
             latitude: region.latitude,
             longitude: region.longitude,
         });
+    };
+
+    const handleToggleSatellite = () => {
+        // Capture region before the toggle re-render can affect the map
+        const regionToRestore = currentRegionRef.current;
+        setIsSatellite(prev => !prev);
+        // Re-lock the view after the mapType prop change has applied
+        if (regionToRestore) {
+            requestAnimationFrame(() => {
+                mapRef.current?.animateToRegion(regionToRestore, 0);
+            });
+        }
     };
 
     const handleConfirm = () => {
@@ -85,7 +110,8 @@ const ExpandedMapModal = ({ visible, initialLocation, userLocation, onConfirm, o
                     ref={mapRef}
                     provider={PROVIDER_GOOGLE}
                     style={styles.map}
-                    customMapStyle={DARK_MAP_STYLE}
+                    mapType={isSatellite ? 'satellite' : 'standard'}
+                    customMapStyle={isSatellite ? [] : DARK_MAP_STYLE}
                     initialRegion={{
                         latitude: initialLocation?.latitude || 0,
                         longitude: initialLocation?.longitude || 0,
@@ -180,18 +206,18 @@ const ExpandedMapModal = ({ visible, initialLocation, userLocation, onConfirm, o
                         <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
                     </TouchableOpacity>
                     <Text style={styles.topTitle}>Adjust Location</Text>
-                    {/* Open in Google Maps */}
+                    {/* Satellite toggle — lets user visually confirm location before requesting */}
                     <TouchableOpacity
-                        style={styles.mapsButton}
-                        onPress={() => openInGoogleMaps(
-                            currentLocation?.latitude,
-                            currentLocation?.longitude,
-                            userLocation // Pass user location for directions context
-                        )}
+                        style={[styles.mapsButton, isSatellite && styles.mapsButtonActive]}
+                        onPress={handleToggleSatellite}
                         activeOpacity={0.8}
                         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                        <Ionicons name="map-outline" size={20} color={COLORS.textPrimary} />
+                        <Ionicons
+                            name={isSatellite ? 'map-outline' : 'earth'}
+                            size={20}
+                            color={isSatellite ? COLORS.primary : COLORS.textPrimary}
+                        />
                     </TouchableOpacity>
                 </SafeAreaView>
 
@@ -343,6 +369,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    mapsButtonActive: {
+        backgroundColor: 'rgba(0, 229, 255, 0.15)',
+        borderWidth: 1,
+        borderColor: 'rgba(0, 229, 255, 0.4)',
     },
 
     // Bottom Controls

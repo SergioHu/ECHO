@@ -23,6 +23,7 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
 
     // Store refs for values needed in subscription callbacks
     const userIdRef = useRef(currentUserId);
+    const silentRefetchRef = useRef(null);
 
     useEffect(() => {
         userIdRef.current = currentUserId;
@@ -155,6 +156,11 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
         }
     }, [latitude, longitude, radiusMeters]);
 
+    // Keep silentRefetchRef current so the realtime closure can call it
+    useEffect(() => {
+        silentRefetchRef.current = silentRefetch;
+    }, [silentRefetch]);
+
     // Real-time subscription — created once on mount
     useEffect(() => {
         const channelName = `nearby-requests-${Date.now()}`;
@@ -204,15 +210,29 @@ export const useNearbyRequests = (latitude, longitude, radiusMeters = DEFAULT_RA
                             if (updatedReq.status !== 'open') {
                                 return prev.filter(req => req.id !== updatedReq.id);
                             }
-                            // Job returned to 'open' (e.g. unlocked after agent backed out)
-                            // If it's no longer in the list, add it back
+                            // Job returned to 'open' (e.g. unlocked after agent backed out,
+                            // or rejected by admin after dispute). If it's no longer in the
+                            // list, add it back optimistically, then trigger a silentRefetch
+                            // so coordinates are guaranteed to be authoritative DB values
+                            // (Supabase Realtime UPDATE payloads may omit unchanged columns
+                            // depending on the table's REPLICA IDENTITY setting).
                             const exists = prev.some(r => r.id === updatedReq.id);
                             if (!exists) {
+                                // Schedule a background refetch to confirm coordinates
+                                setTimeout(() => silentRefetchRef.current?.(), 600);
+
+                                const lat = parseFloat(updatedReq.latitude);
+                                const lng = parseFloat(updatedReq.longitude);
+                                // Only add optimistically if coordinates look valid
+                                if (isNaN(lat) || isNaN(lng)) {
+                                    // Coordinates missing from payload — silentRefetch will add it
+                                    return prev;
+                                }
                                 return [...prev, {
                                     id: updatedReq.id,
                                     supabaseId: updatedReq.id,
-                                    lat: parseFloat(updatedReq.latitude),
-                                    lng: parseFloat(updatedReq.longitude),
+                                    lat,
+                                    lng,
                                     price: updatedReq.price_cents / 100,
                                     title: updatedReq.location_name || updatedReq.description || 'Photo Request',
                                     description: updatedReq.description || '',

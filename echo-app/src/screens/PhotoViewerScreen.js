@@ -36,6 +36,7 @@ const PhotoViewerScreen = ({ route, navigation }) => {
     const [reportDescription, setReportDescription] = useState('');
     const [isCompromised, setIsCompromised] = useState(false);
     const [hasExpired, setHasExpired] = useState(false);
+    const [isReported, setIsReported] = useState(false);
     const appState = useRef(AppState.currentState);
 
     // Track if we've started the Supabase session
@@ -240,6 +241,7 @@ const PhotoViewerScreen = ({ route, navigation }) => {
 
             if (result.success) {
                 setReportModalVisible(false);
+                setIsReported(true);
                 showToast('Photo reported. We\'ll review it shortly.', 'success');
                 navigation.navigate('MainTabs', { screen: 'Activity' });
             } else {
@@ -295,6 +297,7 @@ const PhotoViewerScreen = ({ route, navigation }) => {
                 <ViewTimer
                     jobId={supabasePhotoId || jobId}
                     expiryTimestamp={sessionExpiry ? sessionExpiry.getTime() : null}
+                    frozen={isReported}
                 />
             </View>
 

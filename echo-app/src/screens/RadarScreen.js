@@ -154,9 +154,12 @@ const RadarScreen = ({ navigation }) => {
             showToast('Request Created!', 'success');
             setShowCreateRequest(false);
 
-            // Fallback refetch in case the real-time subscription misses the insert
+            // Fallback refetch in case the real-time subscription misses the insert.
+            // Must use silentRefetchRequests (not refetchSupabaseRequests) — the regular
+            // refetch has a dedup guard that skips when GPS coords haven't changed, so
+            // it would never fire here. silentRefetch bypasses dedup.
             setTimeout(() => {
-                refetchSupabaseRequests();
+                silentRefetchRequests();
             }, 1000);
 
             return;

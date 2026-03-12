@@ -1,8 +1,8 @@
 # ECHO — Master Project Context for Claude
 
-**Last Updated:** March 8, 2026
-**Project Status:** Phase 6 Complete + Full QA Audit
-**Version:** 3.3
+**Last Updated:** March 12, 2026
+**Project Status:** Phase 6 Complete + Full QA Audit + Photo Review Flow Fixes + Job Reopen Bug Fix + Satellite Toggle + Job Disappear Fix
+**Version:** 3.8
 
 ---
 
@@ -197,18 +197,8 @@ ECHO/
 
 All backend communication goes through MCP. Configuration lives in `.mcp.json` at the repo root.
 
-### Supabase MCP ✅ CONNECTED
-```json
-{
-  "mcpServers": {
-    "supabase": {
-      "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=dyywmbrxvypnpvuygqub"
-    }
-  }
-}
-```
-**Use for:** Schema changes, migrations, RPC functions, data queries, RLS policies, storage operations.
+### Supabase MCP ❌ DISCONNECTED — DO NOT USE
+Removed from `.mcp.json`. All Supabase operations must use the CLI or direct SQL files.
 
 ### Expo MCP ✅ CONNECTED
 **Use for:** Expo/React Native docs, adding SDK libraries (`expo install`), EAS builds and workflows, generating CLAUDE.md, validating EAS YAML.
@@ -217,15 +207,41 @@ All backend communication goes through MCP. Configuration lives in `.mcp.json` a
 **Repository:** `SergioHu/ECHO`
 **Use for:** Issues, pull requests, commit history, branch management, code search.
 
+### Supabase CLI ✅ INSTALLED
+
+**Use for:** Edge Functions (deploy Stripe webhooks, push notification handlers), local development, CI/CD pipelines, `supabase db pull` to sync remote schema, `supabase db push` for migrations, `supabase functions deploy` for Edge Functions.
+
+**When to use CLI vs MCP:**
+- **MCP** → day-to-day: queries, quick migrations, RLS checks, data inspection, AI-assisted debugging
+- **CLI** → deployment: Edge Functions, CI/CD, local dev stack, schema sync, type generation
+
+**Key commands:**
+```bash
+supabase db pull                        # pull remote schema changes
+supabase db push                        # push local migrations to remote
+supabase functions new <name>           # create Edge Function
+supabase functions deploy <name>        # deploy Edge Function
+supabase gen types typescript           # generate TypeScript types from schema
+supabase migration new <name>           # create new migration file locally
+```
+
+**Project ref:** `dyywmbrxvypnpvuygqub`
+**Linked:** Yes — run all CLI commands from `echo-app/` directory (where `supabase/config.toml` lives)
+**CLI version:** 2.75.0
+
+---
+
 ### Stripe MCP (Not Yet Configured)
 **Use for:** PaymentIntent creation, customer management, webhook handling, payouts.
 
-### MCP Quick Examples
-```
-"Apply migration 00028_feature.sql to Supabase via MCP"
-"Query all open requests from the database"
-"Create a new RPC function for getting user stats"
-"Check the RLS policies on the photos table"
+### CLI Quick Examples
+```bash
+cd echo-app
+supabase migration new add_stripe_customers
+supabase db push
+supabase functions new stripe-webhook
+supabase functions deploy stripe-webhook
+supabase gen types typescript --project-id dyywmbrxvypnpvuygqub > src/types/supabase.ts
 ```
 
 ---
@@ -628,7 +644,7 @@ USING (
 
 ## 17. MIGRATIONS
 
-Latest: `00029_performance_and_security_hardening`. Next new migration: `00030_...`
+Latest: `00031_get_nearby_requests_include_own`. Next new migration: `00032_...`
 
 | File | Description |
 |------|-------------|
@@ -660,6 +676,8 @@ Latest: `00029_performance_and_security_hardening`. Next new migration: `00030_.
 | `00027` | Auto-expire stale open requests |
 | `00028` | `unlock_request` RPC — release locked job on agent back press |
 | `00029` | Performance & security hardening — 4 FK indexes, 13 RLS policies (select auth.uid()), 23 function search_path |
+| `00030` | Fix `expires_at` reset on job reopen — `resolve_dispute`, `admin_reject_photo`, `unlock_request` all set `expires_at = NOW() + 24h` |
+| `00031` | Fix `get_nearby_requests` — always include requester's own open jobs regardless of distance (`OR r.creator_id = v_user_id`) |
 
 ---
 
@@ -683,6 +701,24 @@ Latest: `00029_performance_and_security_hardening`. Next new migration: `00030_.
 ---
 
 ## 19. CRITICAL DEVELOPMENT RULES
+
+### Supabase: CLI Only — MCP Disconnected
+**RULE: Always use the Supabase CLI. Never use Supabase MCP.**
+- MCP has been removed from `.mcp.json` and must not be reconnected
+- All database operations (migrations, queries, RLS, functions) → CLI
+- All Edge Function deployments → CLI
+- CLI must be run from the `echo-app/` directory (where `supabase/config.toml` lives)
+
+```bash
+# Common CLI commands
+supabase db push                        # apply local migrations to remote
+supabase migration new <name>           # create new migration file
+supabase functions deploy <name>        # deploy Edge Function
+supabase db pull                        # sync remote schema to local
+supabase gen types typescript           # generate TypeScript types
+```
+
+---
 
 ### React Native Bridge Type Safety
 Android Java expects `Double`, not strings. ALWAYS use `parseFloat()`:
@@ -899,6 +935,131 @@ When a request has both a rejected photo (old) and a validated photo (new), `dis
 
 ---
 
+### RESOLVED: Rejected Jobs Not Reappearing on Map (March 9, 2026)
+
+**Root cause:** `lock_request` sets `expires_at = NOW() + 30 minutes` (a lock window). When a job was returned to `'open'` via `resolve_dispute` (reject), `admin_reject_photo`, or `unlock_request` (back press), none of them reset `expires_at`. The `get_nearby_requests` RPC filters `WHERE expires_at IS NULL OR expires_at > NOW()`. After the 30-minute lock window elapsed (during dispute review), the reopened job was excluded from all subsequent fetches. It appeared briefly on the map via the realtime event (which bypasses the RPC filter), then vanished on the next refetch.
+
+**Fix — migration `00030_fix_expires_at_on_job_reopen`:**
+All three RPCs that return a job to `'open'` now reset `expires_at = NOW() + INTERVAL '24 hours'`:
+- `resolve_dispute` (reject path)
+- `admin_reject_photo`
+- `unlock_request`
+
+**DB fix:** 21 existing open requests had stale `expires_at` in the past — all reset to `NOW() + 24 hours`.
+
+**Key rule:** Every time a request transitions to `status = 'open'` (whether fresh creation, agent back-press, or photo rejection), `expires_at` must be set to `NOW() + 24 hours`. `lock_request` may overwrite it to a shorter window for the lock period — that is intentional — but any transition back to open must restore the full 24h window.
+
+---
+
+### RESOLVED: Photo Review Flow — Timer Freeze + "Under Review" Badge (March 9, 2026)
+
+Two bugs fixed:
+
+**Bug 1 — Countdown keeps running after requester reports a photo:**
+After `reportPhoto` RPC succeeds in `PhotoViewerScreen`, the timer continued counting down in both `PhotoViewerScreen` (briefly before navigation) and `ActivityScreen` (ongoing). Fix: added `isReported` state to `PhotoViewerScreen`; set to `true` immediately after successful `reportPhoto` call; passed as `frozen={isReported}` to `<ViewTimer>`. Added `frozen` prop to `ViewTimer` component — when frozen, renders an orange "UNDER REVIEW" badge instead of the countdown.
+
+**Bug 2 — Disputed photos showed "PHOTO DELIVERED" (green) in ActivityScreen:**
+The simplified requester status logic in `ActivityScreen` collapsed `item.status === 'disputed'` into the `hasPhoto` branch, showing a green "PHOTO DELIVERED" badge. Fix: added `isDisputed` check as the first branch in the status logic (before `hasPhoto`), showing orange "UNDER REVIEW". Photo thumbnail and VIEW PHOTO button are also hidden for disputed items. ViewTimer receives `frozen={isDisputed}`.
+
+**Bug 3 — App crash "Rendered fewer hooks than expected" (Rules of Hooks violation):**
+The `frozen` early return was inserted inside `ViewTimer` between `useState` and the three `useEffect` calls. React requires all hooks to run in the same order on every render — an early return between hooks violates this. Fix: moved all hooks to run unconditionally first; `frozen` check moved to the final render section after all hooks. The `frozen` flag is threaded into `useEffect` dependency arrays so the tick interval stops and the expiry callback is suppressed while frozen.
+
+**Key patterns:**
+- `ViewTimer` `frozen` prop: when `true`, all hooks still run (Rules of Hooks), but the interval is skipped and the component renders "UNDER REVIEW" instead of the countdown
+- "dispute" / "disputed" wording never shown to end users — always use "Under Review"
+- `ActivityScreen`: `isDisputed = item.status === 'disputed'` — checked before `hasPhoto` in status logic
+
+**Files changed:** `ViewTimer.js`, `PhotoViewerScreen.js`, `ActivityScreen.js`
+
+---
+
+### RESOLVED: Rejected Jobs Appear at Wrong Map Location — Realtime Payload Fix (March 12, 2026)
+
+**Problem (second pass, after migration 00030):** Even after `expires_at` was reset by migration 00030, jobs returned to 'open' via `resolve_dispute` (reject) could still appear at wrong/missing coordinates when re-added via the Supabase Realtime UPDATE event.
+
+**Root cause:** Supabase Realtime `postgres_changes` UPDATE events with DEFAULT `REPLICA IDENTITY` may omit unchanged columns (like `latitude`/`longitude`) from `payload.new` in some configurations. The realtime handler in `useNearbyRequests.js` was blindly using `parseFloat(updatedReq.latitude)` — if the column was absent, this produced `NaN`, and either the marker didn't appear or (in edge cases) appeared at 0,0.
+
+**Fix — `useNearbyRequests.js`:**
+- Added `silentRefetchRef` (keeps current `silentRefetch` function accessible from the realtime subscription closure, which has empty deps `[]`)
+- In the `UPDATE → status='open' → !exists` path:
+  - Validate `lat`/`lng` from payload — if `NaN`, skip optimistic add entirely
+  - Schedule `silentRefetch` after 600ms via `setTimeout` — this calls `get_nearby_requests` RPC which returns authoritative coordinates from the DB
+  - Optimistic add still fires instantly when coordinates are valid, for snappy UX; silentRefetch then confirms/corrects them
+
+**Pattern:**
+```javascript
+// Keep ref current for realtime closure (which uses empty deps)
+const silentRefetchRef = useRef(null);
+useEffect(() => { silentRefetchRef.current = silentRefetch; }, [silentRefetch]);
+
+// In UPDATE handler when job re-enters 'open':
+setTimeout(() => silentRefetchRef.current?.(), 600);
+const lat = parseFloat(updatedReq.latitude);
+const lng = parseFloat(updatedReq.longitude);
+if (isNaN(lat) || isNaN(lng)) return prev; // silentRefetch will add it
+```
+
+---
+
+### RESOLVED: Jobs Disappearing from Map When Pinned in Different Location (March 12, 2026)
+
+**Symptom:** Jobs placed at a location different from the user's current GPS position would appear on the map immediately after creation, then disappear without apparent reason — especially when the user switched tabs or their GPS updated.
+
+**Root cause (two bugs):**
+
+**Bug 1 — DB: `get_nearby_requests` distance filter excluded own jobs**
+The RPC filtered `WHERE ST_DWithin(r.location, user_GPS, 50km)`. If the requester pinned a job at location X that was outside the 50km radius from their GPS (e.g. testing with a distant city, or GPS drift), every `silentRefetch` would return results without the job, then call `setRequests(transformedData)` which replaces the entire state — the job vanishes.
+
+Fix — **migration `00031_get_nearby_requests_include_own`:**
+```sql
+AND (
+    ST_DWithin(r.location, v_point, p_radius_meters)  -- nearby (for agents)
+    OR r.creator_id = v_user_id                        -- own jobs (for requesters)
+)
+```
+Requesters now always see their own open jobs on the radar regardless of where they pinned them.
+
+**Bug 2 — Frontend: fallback `refetchSupabaseRequests()` in `handleConfirmRequest` was always skipped**
+After creating a request, RadarScreen called `setTimeout(() => refetchSupabaseRequests(), 1000)` as a "fallback in case realtime misses the insert." But `refetchSupabaseRequests` = `fetchRequests`, which has a dedup check that aborts when GPS coords haven't changed — which is always the case right after creation. The fallback literally never ran.
+
+Fix — **`RadarScreen.js`:** Changed to `silentRefetchRequests()` which bypasses the dedup check.
+
+**Key rule:** `silentRefetch` (not `refetch`) must be used for any "refresh after a user action" call. `refetch` is for "refresh because user moved to new location." The dedup guard in `refetch` only makes sense for GPS-triggered refetches.
+
+### NEW: ExpandedMapModal — Satellite View Toggle (March 12, 2026)
+
+**Feature:** Top-right button in `ExpandedMapModal` now toggles between the dark standard map and Google Maps satellite view. The user can search for a location, navigate to it on the dark map, then press the button to see it in satellite before confirming the photo request location.
+
+**Behavior:**
+- First press: `mapType="satellite"`, `customMapStyle=[]` (no custom style — Google's native satellite tiles)
+- Second press: `mapType="standard"`, `customMapStyle={DARK_MAP_STYLE}` (back to dark theme)
+- Map view (center + zoom) is preserved across toggles — does NOT re-center
+- Satellite mode is reset to off when the modal closes
+
+**Implementation — `ExpandedMapModal.js`:**
+- `isSatellite` state (default `false`)
+- `currentRegionRef` stores full region `{ latitude, longitude, latitudeDelta, longitudeDelta }` — updated on every `onRegionChangeComplete`
+- `handleToggleSatellite`: captures `currentRegionRef.current` before state update, calls `setIsSatellite`, then uses `requestAnimationFrame` to call `mapRef.current?.animateToRegion(region, 0)` — this re-locks the view after the mapType prop change
+- Icon: `earth` in standard mode (tap to go satellite), `map-outline` + cyan tint in satellite mode (tap to go back)
+- Active button gets a subtle cyan border (`mapsButtonActive` style)
+- Removed unused `openInGoogleMaps` import (Google Maps deep-link button replaced by satellite toggle)
+
+**Key pattern — preserving view on mapType change:**
+```javascript
+const handleToggleSatellite = () => {
+    const regionToRestore = currentRegionRef.current;
+    setIsSatellite(prev => !prev);
+    if (regionToRestore) {
+        requestAnimationFrame(() => {
+            mapRef.current?.animateToRegion(regionToRestore, 0);
+        });
+    }
+};
+```
+`requestAnimationFrame` ensures the call runs after React has flushed the `mapType` prop, so the map doesn't jump to `initialRegion`.
+
+---
+
 ## 23. SECURITY CHECKLIST
 
 - [x] RLS enabled on all tables
@@ -928,6 +1089,11 @@ When a request has both a rejected photo (old) and a validated photo (new), `dis
 - ✅ Bug Fix: Stale rejection feedback in Activity — `isReopenedAfterRejection` broadened + `!hasPhoto` guard on Admin Feedback block (March 6, 2026)
 - ✅ Bug Fix: Google Places search silent in EAS builds — `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` added to `eas.json` env + used as primary source in `CreateRequestSheet.js` (March 6, 2026)
 - ✅ Full QA Audit + Hardening (March 8, 2026) — see §22 for details
+- ✅ Bug Fix: Photo review flow — timer freeze + "Under Review" badge + Rules of Hooks crash fix (March 9, 2026) — see §22 for details
+- ✅ Bug Fix: Rejected jobs not reappearing on map — `expires_at` stale after `lock_request` overwrite (March 9, 2026) — see §22 for details
+- ✅ Bug Fix: Rejected jobs appearing at wrong coordinates — Realtime payload NaN guard + silentRefetch on reopen (March 12, 2026) — see §22 for details
+- ✅ Feature: ExpandedMapModal satellite toggle — dark map ↔ satellite, view preserved across toggle (March 12, 2026) — see §22 for details
+- ✅ Bug Fix: Jobs disappearing from map when pinned outside user's GPS radius — migration 00031 + RadarScreen fallback refetch fix (March 12, 2026) — see §22 for details
 
 ### In Progress
 - 🚧 Stripe Payment Integration
