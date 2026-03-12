@@ -49,6 +49,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
     const { showToast } = useToast();
 
     const [description, setDescription] = useState('');
+    const [priceInput, setPriceInput] = useState('0.50');
     const [query, setQuery] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -69,6 +70,16 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
     // Handle submit - create request in Supabase or fallback to local
     const handleSubmit = async () => {
         if (!description.trim()) return;
+        const priceEuros = parseFloat(priceInput);
+        if (isNaN(priceEuros) || priceEuros < 0.50) {
+            showToast('Minimum price is €0.50', 'error');
+            return;
+        }
+        if (priceEuros > 10.00) {
+            showToast('Maximum price is €10.00', 'error');
+            return;
+        }
+        const priceCents = Math.round(priceEuros * 100);
 
         setIsSubmitting(true);
 
@@ -78,7 +89,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 longitude: selectedLocation.longitude,
                 locationName: query || `${selectedLocation.latitude.toFixed(5)}, ${selectedLocation.longitude.toFixed(5)}`,
                 description: description.trim(),
-                priceCents: 50, // €0.50 default
+                priceCents: priceCents,
                 category: 'general',
             };
 
@@ -393,13 +404,34 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                         multiline
                         maxLength={100}
                     />
+
+                    {/* PRICE */}
+                    <Text style={styles.label}>Price (€)</Text>
+                    <TextInput
+                        style={styles.priceInput}
+                        value={priceInput}
+                        onChangeText={setPriceInput}
+                        keyboardType="decimal-pad"
+                        placeholder="0.50"
+                        placeholderTextColor={COLORS.textSecondary}
+                        maxLength={5}
+                    />
+                    <View style={styles.priceBreakdown}>
+                        <Text style={styles.breakdownText}>
+                            Agent earns: €{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50)) * 0.8).toFixed(2)}
+                        </Text>
+                        <Text style={styles.breakdownSep}>·</Text>
+                        <Text style={styles.breakdownText}>
+                            Platform fee: €{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50)) * 0.2).toFixed(2)}
+                        </Text>
+                    </View>
                 </ScrollView>
 
                 {/* TOTAL + BOTÃO INLINE (FIXED FOOTER) */}
                 <View style={styles.summaryRow}>
                     <View style={styles.totalWrapper}>
                         <Text style={styles.totalLabel}>Total:</Text>
-                        <Text style={styles.totalValue}>€0.50</Text>
+                        <Text style={styles.totalValue}>€{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50))).toFixed(2)}</Text>
                     </View>
 
                     <View style={{ flex: 1 }} />
@@ -611,6 +643,30 @@ const styles = StyleSheet.create({
         minHeight: 60,
         textAlignVertical: 'top',
         marginBottom: 12,
+    },
+    priceInput: {
+        backgroundColor: '#333',
+        color: COLORS.textPrimary,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        fontSize: 16,
+        marginBottom: 6,
+        ...FONTS.bold,
+    },
+    priceBreakdown: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    breakdownText: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
+    },
+    breakdownSep: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
     },
     summaryRow: {
         flexDirection: 'row',

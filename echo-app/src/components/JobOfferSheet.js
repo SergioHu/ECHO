@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
+import { timeAgo } from '../utils/timeAgo';
 
 const { height } = Dimensions.get('window');
 
@@ -39,6 +40,11 @@ const JobOfferSheet = ({ job, distance, onClose, onAccept, canAccept = true }) =
                     <Ionicons name="walk-outline" size={20} color={COLORS.textSecondary} />
                     <Text style={styles.distanceText}>approx. {distance || 0}m away</Text>
                 </View>
+
+                {/* Posted time */}
+                {job.createdAt && (
+                    <Text style={styles.postedTime}>Posted {timeAgo(job.createdAt)}</Text>
+                )}
 
                 {/* Price - FIX: Usar formatPrice() */}
                 <View style={styles.priceContainer}>
@@ -200,6 +206,11 @@ const styles = StyleSheet.create({
     },
     acceptButtonTextDisabled: {
         color: '#D0D0D0',
+    },
+    postedTime: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
+        marginBottom: SPACING.m,
     },
 });
 

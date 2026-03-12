@@ -28,6 +28,7 @@ const AuthScreen = ({ navigation }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [name, setName] = useState('');
     const [localLoading, setLocalLoading] = useState(false);
 
     const { signIn, signUp, loading } = useAuth();
@@ -60,14 +61,14 @@ const AuthScreen = ({ navigation }) => {
                     navigation.replace('MainTabs');
                 }
             } else {
-                const { error, data } = await signUp(email, password);
+                const { error, data } = await signUp(email, password, { display_name: name.trim() || email.split('@')[0] });
                 if (error) {
                     showToast(error.message, 'error');
                 } else if (data?.user?.identities?.length === 0) {
                     showToast('This email is already registered. Try logging in.', 'error');
                 } else {
-                    showToast('Check your email to confirm your account.', 'success');
-                    setIsLogin(true);
+                    showToast('Welcome to ECHO!', 'success');
+                    navigation.replace('MainTabs');
                 }
             }
         } catch (err) {
@@ -111,6 +112,22 @@ const AuthScreen = ({ navigation }) => {
                         underlineColorAndroid="transparent"
                         editable={!isLoading}
                     />
+
+                    {!isLogin && (
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Your name"
+                            placeholderTextColor={COLORS.textSecondary}
+                            value={name}
+                            onChangeText={setName}
+                            autoCapitalize="words"
+                            autoCorrect={false}
+                            autoComplete="name"
+                            textContentType="name"
+                            underlineColorAndroid="transparent"
+                            editable={!isLoading}
+                        />
+                    )}
 
                     <View style={styles.passwordContainer}>
                         <TextInput
@@ -180,7 +197,7 @@ const AuthScreen = ({ navigation }) => {
 
                     <TouchableOpacity
                         style={styles.switchButton}
-                        onPress={() => setIsLogin(!isLogin)}
+                        onPress={() => { setIsLogin(!isLogin); setName(''); }}
                         disabled={isLoading}
                     >
                         <Text style={styles.switchText}>

@@ -73,6 +73,7 @@ export const useProfile = () => {
                 .update({
                     display_name: updates.displayName,
                     avatar_url: updates.avatarUrl,
+                    ...(updates.isAgent !== undefined && { is_agent: updates.isAgent }),
                 })
                 .eq('id', user.id)
                 .select()

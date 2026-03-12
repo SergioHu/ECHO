@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { dateAndTimeAgo } from '../utils/timeAgo';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -306,7 +307,7 @@ const ActivityScreen = () => {
 
                         {/* Date */}
                         <Text style={styles.date}>
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Recent'}
+                            {item.createdAt ? dateAndTimeAgo(item.createdAt) : 'Recent'}
                         </Text>
                     </View>
                 </InfoCard>
@@ -405,7 +406,7 @@ const ActivityScreen = () => {
                         </View>
 
                         <Text style={styles.date}>
-                            {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'Recent'}
+                            {item.createdAt ? dateAndTimeAgo(item.createdAt) : 'Recent'}
                         </Text>
                     </View>
                 </InfoCard>

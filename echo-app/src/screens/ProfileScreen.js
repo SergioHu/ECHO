@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../components/ScreenWrapper';
 import InfoCard from '../components/InfoCard';
@@ -7,6 +7,7 @@ import InfoModal, { MODAL_TOKENS } from '../components/InfoModal';
 import { COLORS, FONTS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks';
+import { useToast } from '../context/ToastContext';
 
 // ============================================================
 // MOCK USER STATE (front-end only — replace with real data later)
@@ -115,7 +116,8 @@ const ProfileMenuRow = ({ icon, label, onPress, badge, isLast }) => (
 // ============================================================
 const ProfileScreen = ({ navigation }) => {
     const { signOut, user: authUser } = useAuth();
-    const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile();
+    const { profile, loading: profileLoading, refetch: refetchProfile, updateProfile } = useProfile();
+    const { showToast } = useToast();
 
     // Merge Supabase profile with mock data for fields not yet in DB
     const user = useMemo(() => ({
@@ -130,6 +132,9 @@ const ProfileScreen = ({ navigation }) => {
         // Admin access: Supabase role only — no local fallback
         isAdmin: profile?.role === 'reviewer' || profile?.role === 'admin',
     }), [profile, authUser]);
+
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [nameInput, setNameInput] = useState('');
 
     // Modal state
     const [modalConfig, setModalConfig] = useState({
@@ -192,6 +197,16 @@ const ProfileScreen = ({ navigation }) => {
     };
 
     const payoutState = getPayoutState();
+
+    const handleSaveName = async () => {
+        if (!nameInput.trim()) return;
+        const { error } = await updateProfile({ displayName: nameInput.trim() });
+        if (error) {
+            showToast('Failed to update name', 'error');
+        } else {
+            setIsEditingName(false);
+        }
+    };
 
     // ============================================================
     // NAVIGATION HANDLERS
@@ -286,6 +301,63 @@ const ProfileScreen = ({ navigation }) => {
         <ScreenWrapper>
             <ScrollView contentContainerStyle={styles.scrollContent}>
 
+                {/* ===== IDENTITY HEADER ===== */}
+                <View style={styles.identityHeader}>
+                    <View style={styles.initialsCircle}>
+                        <Text style={styles.initialsText}>
+                            {user.displayName.charAt(0).toUpperCase()}
+                        </Text>
+                    </View>
+                    <View style={styles.identityInfo}>
+                        {isEditingName ? (
+                            <View style={styles.editNameRow}>
+                                <TextInput
+                                    style={styles.nameInput}
+                                    value={nameInput}
+                                    onChangeText={setNameInput}
+                                    autoFocus
+                                    maxLength={40}
+                                    placeholder="Your name"
+                                    placeholderTextColor={COLORS.textSecondary}
+                                />
+                                <TouchableOpacity style={styles.nameSaveBtn} onPress={handleSaveName}>
+                                    <Text style={styles.nameSaveBtnText}>Save</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setIsEditingName(false)}>
+                                    <Text style={styles.nameCancelText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={styles.nameRow}
+                                onPress={() => { setNameInput(user.displayName); setIsEditingName(true); }}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.displayName}>{user.displayName}</Text>
+                                <Ionicons name="pencil-outline" size={14} color={COLORS.textSecondary} style={{ marginLeft: 6 }} />
+                            </TouchableOpacity>
+                        )}
+                        <Text style={styles.emailText}>{authUser?.email || ''}</Text>
+                    </View>
+                </View>
+
+                {/* ===== AGENT MODE TOGGLE ===== */}
+                <View style={styles.agentToggleRow}>
+                    <View style={styles.agentToggleLeft}>
+                        <Ionicons name="camera-outline" size={22} color={COLORS.primary} />
+                        <View style={{ marginLeft: SPACING.m }}>
+                            <Text style={styles.agentToggleLabel}>Agent Mode</Text>
+                            <Text style={styles.agentToggleSub}>Accept photo jobs from the map</Text>
+                        </View>
+                    </View>
+                    <Switch
+                        value={user.isAgent}
+                        onValueChange={(val) => updateProfile({ isAgent: val })}
+                        trackColor={{ false: COLORS.border, true: COLORS.primary + '66' }}
+                        thumbColor={user.isAgent ? COLORS.primary : COLORS.textSecondary}
+                    />
+                </View>
+
                 {/* ===== EARNINGS CARD (HERO) ===== */}
                 <View style={styles.earningsContainer}>
                     <Text style={styles.earningsLabel}>Available Balance</Text>
@@ -326,11 +398,11 @@ const ProfileScreen = ({ navigation }) => {
                 <View style={styles.statsRow}>
                     <InfoCard style={styles.statCard}>
                         <Text style={styles.statValue}>{user.photos}</Text>
-                        <Text style={styles.statLabel}>Photos</Text>
+                        <Text style={styles.statLabel}>Completed</Text>
                     </InfoCard>
                     <InfoCard style={styles.statCard}>
-                        <Text style={styles.statValue}>{user.rating}</Text>
-                        <Text style={styles.statLabel}>Rating</Text>
+                        <Text style={styles.statValue}>{profile?.createdRequests ?? 0}</Text>
+                        <Text style={styles.statLabel}>Requested</Text>
                     </InfoCard>
                     <InfoCard style={styles.statCard}>
                         <Text style={styles.statValue}>{user.strikes}</Text>
@@ -586,6 +658,104 @@ const styles = StyleSheet.create({
     },
     badgeTextRequired: {
         color: TOKEN.warning,
+    },
+
+    // Identity Header
+    identityHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: SPACING.m,
+        marginBottom: SPACING.s,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    initialsCircle: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        backgroundColor: COLORS.primary + '33',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: SPACING.m,
+    },
+    initialsText: {
+        color: COLORS.primary,
+        fontSize: 22,
+        fontWeight: '700',
+    },
+    identityInfo: {
+        flex: 1,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    displayName: {
+        color: COLORS.textPrimary,
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    emailText: {
+        color: COLORS.textSecondary,
+        fontSize: 13,
+        marginTop: 2,
+    },
+    editNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.s,
+    },
+    nameInput: {
+        flex: 1,
+        color: COLORS.textPrimary,
+        fontSize: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.primary,
+        paddingVertical: 2,
+    },
+    nameSaveBtn: {
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: SPACING.s,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    nameSaveBtnText: {
+        color: '#000',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    nameCancelText: {
+        color: COLORS.textSecondary,
+        fontSize: 13,
+    },
+    // Agent Toggle
+    agentToggleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: SPACING.m,
+        marginBottom: SPACING.s,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    agentToggleLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    agentToggleLabel: {
+        color: COLORS.textPrimary,
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    agentToggleSub: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
+        marginTop: 1,
     },
 
     // Admin Button
