@@ -1,2 +1,5 @@
--- Auto-confirm new user signups so email confirmation is not required
-ALTER TABLE auth.users ALTER COLUMN email_confirmed_at SET DEFAULT now();
+-- Auto-confirm new user signups.
+-- NOTE: ALTER TABLE auth.users is not permitted (Supabase owns the table).
+-- The actual fix is in migration 00033 which updates auth.config at the row level.
+-- This migration is retained as a marker in the history table.
+SELECT 1;

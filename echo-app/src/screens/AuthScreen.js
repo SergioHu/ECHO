@@ -40,6 +40,11 @@ const AuthScreen = ({ navigation }) => {
             return;
         }
 
+        if (!isLogin && !name.trim()) {
+            showToast('Please enter your name', 'error');
+            return;
+        }
+
         if (!isLogin && password !== confirmPassword) {
             showToast('Passwords do not match', 'error');
             return;
@@ -66,9 +71,15 @@ const AuthScreen = ({ navigation }) => {
                     showToast(error.message, 'error');
                 } else if (data?.user?.identities?.length === 0) {
                     showToast('This email is already registered. Try logging in.', 'error');
-                } else {
+                } else if (data?.session) {
+                    // Auto-confirmed — session is live, go straight to app
                     showToast('Welcome to ECHO!', 'success');
                     navigation.replace('MainTabs');
+                } else {
+                    // Email confirmation is still enabled in the Supabase project.
+                    // The account was created but the user must confirm before logging in.
+                    showToast('Check your email to confirm your account.', 'info');
+                    setIsLogin(true);
                 }
             }
         } catch (err) {
