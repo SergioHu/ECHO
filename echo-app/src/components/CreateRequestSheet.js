@@ -49,7 +49,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
     const { showToast } = useToast();
 
     const [description, setDescription] = useState('');
-    const [priceInput, setPriceInput] = useState('0.50');
+    const [priceInput, setPriceInput] = useState('1.00');
     const [query, setQuery] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -71,8 +71,8 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
     const handleSubmit = async () => {
         if (!description.trim()) return;
         const priceEuros = parseFloat(priceInput);
-        if (isNaN(priceEuros) || priceEuros < 0.50) {
-            showToast('Minimum price is €0.50', 'error');
+        if (isNaN(priceEuros) || priceEuros < 1.00) {
+            showToast('Minimum price is €1.00', 'error');
             return;
         }
         if (priceEuros > 10.00) {
@@ -412,17 +412,17 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                         value={priceInput}
                         onChangeText={setPriceInput}
                         keyboardType="decimal-pad"
-                        placeholder="0.50"
+                        placeholder="1.00"
                         placeholderTextColor={COLORS.textSecondary}
                         maxLength={5}
                     />
                     <View style={styles.priceBreakdown}>
                         <Text style={styles.breakdownText}>
-                            Agent earns: €{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50)) * 0.8).toFixed(2)}
+                            Agent earns: €{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00)) * 0.8).toFixed(2)}
                         </Text>
                         <Text style={styles.breakdownSep}>·</Text>
                         <Text style={styles.breakdownText}>
-                            Platform fee: €{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50)) * 0.2).toFixed(2)}
+                            Platform fee: €{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00)) * 0.2).toFixed(2)}
                         </Text>
                     </View>
                 </ScrollView>
@@ -431,7 +431,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 <View style={styles.summaryRow}>
                     <View style={styles.totalWrapper}>
                         <Text style={styles.totalLabel}>Total:</Text>
-                        <Text style={styles.totalValue}>€{(Math.max(0.50, Math.min(10.00, parseFloat(priceInput) || 0.50))).toFixed(2)}</Text>
+                        <Text style={styles.totalValue}>€{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00))).toFixed(2)}</Text>
                     </View>
 
                     <View style={{ flex: 1 }} />

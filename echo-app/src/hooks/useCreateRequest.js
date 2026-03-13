@@ -29,7 +29,7 @@ export const useCreateRequest = () => {
         longitude,
         locationName,
         description,
-        priceCents = 50, // Default €0.50
+        priceCents = 100, // Default €1.00
         category = 'general',
     }) => {
         if (!user?.id) {
