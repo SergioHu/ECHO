@@ -1,8 +1,8 @@
 # ECHO — Master Project Context for Claude
 
-**Last Updated:** March 12, 2026
-**Project Status:** Phase 6 Complete + Full QA Audit + Photo Review Flow Fixes + Job Reopen Bug Fix + Satellite Toggle + Job Disappear Fix
-**Version:** 3.8
+**Last Updated:** March 13, 2026
+**Project Status:** Phase 6 Complete + Production Readiness (Auth, Profile, Pricing, Timestamps) + Tester Onboarding Ready
+**Version:** 4.0
 
 ---
 
@@ -29,7 +29,8 @@
 
 ### The Value Proposition
 ```
-Requester pays €0.50 → Agent earns €0.40 → Platform keeps €0.10
+Requester pays €1.00–€10.00 → Agent earns 80% → Platform keeps 20%
+Minimum: €1.00 total → Agent €0.80 → Platform €0.20
 ```
 
 ### Key Differentiators
@@ -68,10 +69,11 @@ Photos are viewable for EXACTLY 3 minutes (180 seconds).
 
 ### Rule 4: Payment Split
 ```
-Total: €0.50
-├── Agent: €0.40 (80%)
-└── Platform: €0.10 (20%)
+Total: €1.00–€10.00 (requester sets price, minimum €1.00)
+├── Agent: 80% of total
+└── Platform: 20% of total
 ```
+The price input is in `CreateRequestSheet`. Breakdown shown live ("Agent earns: €X.XX · Platform fee: €X.XX").
 
 ### Rule 5: Dispute Handling
 ```
@@ -165,9 +167,10 @@ ECHO/
     │   └── utils/
     │       ├── navigationRef.js
     │       ├── mapUtils.js
-    │       └── adminHelpers.js
+    │       ├── adminHelpers.js
+    │       └── timeAgo.js           # timeAgo() + dateAndTimeAgo() helpers
     └── supabase/
-        ├── migrations/              # 27 SQL migrations
+        ├── migrations/              # 34 SQL migrations
         ├── config.toml
         └── seed.sql
 ```
@@ -374,7 +377,8 @@ const { requests, loading, error, refetch } = useNearbyRequests(userLat, userLng
 ### `useCreateRequest`
 ```javascript
 const { createRequest, loading, error } = useCreateRequest();
-await createRequest({ latitude, longitude, description, priceCents: 50, category: 'general' });
+await createRequest({ latitude, longitude, description, priceCents: 100, category: 'general' });
+// priceCents minimum: 100 (€1.00). Default fallback: 100. Max: 1000 (€10.00).
 ```
 
 ### `useLockRequest`
@@ -419,15 +423,16 @@ showToast('Message', 'success'); // 'success' | 'error' | 'info'
 
 ### Requester Flow
 ```
-1. Open RadarScreen (map view)
-2. Tap "Ask Echo" button
-3. Select location on map
-4. Set price and description
-5. Confirm payment (Stripe)
-6. Wait for agent to accept
-7. Receive notification when photo ready
-8. View photo (3-minute window)
-9. Approve or Report
+1. Open app → AuthScreen
+2. Sign up (Name + Email + Password) → lands on MainTabs immediately
+3. Tap "Ask Echo" button on RadarScreen
+4. Select location on map (or search via Places)
+5. Enter description + set price (€1.00–€10.00, breakdown shown)
+6. Confirm → job appears on map
+7. Wait for agent to accept
+8. Receive notification when photo ready
+9. View photo (3-minute window)
+10. Approve or Report
 ```
 
 ### Agent Flow
@@ -478,9 +483,29 @@ useEffect(() => {
 }, []);
 ```
 
+### AuthScreen — `screens/AuthScreen.js`
+- Login: email + password
+- Signup: name + email + password + confirm password → navigates directly to `MainTabs` on success (no email confirmation required)
+- Guard: `data.session` must be present before navigating — if `null` (email confirmation still on), shows "Check your email" fallback
+- Error: `identities.length === 0` → "This email is already registered"
+- Email confirmation is **disabled** on the Supabase project (`config.toml` pushed via `supabase config push`)
+
+### ProfileScreen — `screens/ProfileScreen.js`
+**Contains only features with real functionality:**
+- Identity header: initials circle + display name (editable inline) + email
+  - Display name fix: if DB value contains `@` (old accounts set `display_name = email`), strips domain prefix
+- Agent Mode toggle: `Switch` → `updateProfile({ isAgent: val })` → updates `profiles.is_agent`
+- Available Balance card: just `€XX.XX`, no Stripe messaging
+- Stats row: Completed + Requested (real DB data)
+- Logout (confirmation modal)
+- Admin Dashboard (only renders when `profile.role === 'reviewer' || 'admin'`)
+
+**Removed permanently** (no real functionality): Verification, Payout Methods, Earnings & Payouts, Privacy & Safety, Support, Cash Out button, payout status row, "Next payout: —".
+
 ### ActivityScreen
 - Tabs: Requested / Completed
 - Pull-to-refresh, status badges, VIEW PHOTO button for delivered photos
+- Timestamps: `dateAndTimeAgo()` — "Today, 14:32 — 2h ago"
 
 ---
 
@@ -644,7 +669,7 @@ USING (
 
 ## 17. MIGRATIONS
 
-Latest: `00031_get_nearby_requests_include_own`. Next new migration: `00032_...`
+Latest: `00034_is_agent_default_true`. Next new migration: `00035_...`
 
 | File | Description |
 |------|-------------|
@@ -678,6 +703,9 @@ Latest: `00031_get_nearby_requests_include_own`. Next new migration: `00032_...`
 | `00029` | Performance & security hardening — 4 FK indexes, 13 RLS policies (select auth.uid()), 23 function search_path |
 | `00030` | Fix `expires_at` reset on job reopen — `resolve_dispute`, `admin_reject_photo`, `unlock_request` all set `expires_at = NOW() + 24h` |
 | `00031` | Fix `get_nearby_requests` — always include requester's own open jobs regardless of distance (`OR r.creator_id = v_user_id`) |
+| `00032` | Marker migration — safe no-op (`SELECT 1`). `ALTER TABLE auth.users` not permitted via CLI; email confirmation disabled via `supabase config push` instead |
+| `00033` | Backfill existing unconfirmed users: `UPDATE auth.users SET email_confirmed_at = COALESCE(email_confirmed_at, created_at)` |
+| `00034` | `is_agent DEFAULT true` for new users + backfill all existing users to `is_agent = true` (testing phase) |
 
 ---
 
@@ -685,10 +713,10 @@ Latest: `00031_get_nearby_requests_include_own`. Next new migration: `00032_...`
 
 ### Payment Flow
 ```
-1. User creates request → MCP: Create PaymentIntent (€0.50)
+1. User creates request → set price (€1.00–€10.00) → Create PaymentIntent
 2. Frontend confirms payment via Stripe SDK
 3. Webhook: payment_intent.succeeded → set request status 'open'
-4. Agent submits photo → credit agent €0.40, record ledger entry
+4. Agent submits photo → credit agent 80%, record ledger entry
 ```
 
 ### Webhook Events
@@ -716,7 +744,10 @@ supabase migration new <name>           # create new migration file
 supabase functions deploy <name>        # deploy Edge Function
 supabase db pull                        # sync remote schema to local
 supabase gen types typescript           # generate TypeScript types
+supabase config push --project-ref dyywmbrxvypnpvuygqub  # push config.toml settings (auth, api, storage) to production
 ```
+
+> **IMPORTANT — `ALTER TABLE auth.*` not permitted via migrations.** Supabase's hosted GoTrue owns those tables. Auth configuration changes (email confirmation, JWT expiry, etc.) must be done via `supabase config push`, not SQL migrations.
 
 ---
 
@@ -839,7 +870,8 @@ npm run ios
 | Timer not syncing | Use `PhotoTimerContext` keyed by `jobId` |
 | Photos not loading | Check Supabase Storage signed URL expiry |
 | Markers not appearing on RadarScreen | See below |
-| User cannot log in (unconfirmed email) | Run: `UPDATE auth.users SET email_confirmed_at = now(), updated_at = now() WHERE id = '<uuid>';` — `confirmed_at` is a generated column, do not set it manually |
+| User cannot log in (unconfirmed email) | Email confirmation is **disabled** globally. For individual stuck users: `UPDATE auth.users SET email_confirmed_at = now(), updated_at = now() WHERE id = '<uuid>';` — `confirmed_at` is a generated column, do not set it manually |
+| New signup doesn't land in app / session null | Email confirmation was re-enabled. Run: `supabase config push --project-ref dyywmbrxvypnpvuygqub` to restore `enable_confirmations = false` from config.toml |
 
 ### RESOLVED: Job Markers Not Appearing on RadarScreen (March 2026)
 
@@ -1026,7 +1058,7 @@ Fix — **`RadarScreen.js`:** Changed to `silentRefetchRequests()` which bypasse
 
 **Key rule:** `silentRefetch` (not `refetch`) must be used for any "refresh after a user action" call. `refetch` is for "refresh because user moved to new location." The dedup guard in `refetch` only makes sense for GPS-triggered refetches.
 
-### NEW: ExpandedMapModal — Satellite View Toggle (March 12, 2026)
+### RESOLVED: ExpandedMapModal — Satellite View Toggle (March 12, 2026)
 
 **Feature:** Top-right button in `ExpandedMapModal` now toggles between the dark standard map and Google Maps satellite view. The user can search for a location, navigate to it on the dark map, then press the button to see it in satellite before confirming the photo request location.
 
@@ -1057,6 +1089,53 @@ const handleToggleSatellite = () => {
 };
 ```
 `requestAnimationFrame` ensures the call runs after React has flushed the `mapType` prop, so the map doesn't jump to `initialRegion`.
+
+---
+
+### RESOLVED: Production Readiness — Auth, Profile, Pricing, Timestamps (March 13, 2026)
+
+**Item 1 — Signup flow (no email confirmation)**
+
+Three-layer fix:
+1. `supabase config push` → `enable_confirmations = false` pushed to production (the authoritative fix — this is what the Dashboard toggle writes)
+2. Migration 00033 → backfills existing `email_confirmed_at = NULL` users so they can log in
+3. AuthScreen guard: `data.session` must be non-null before `navigation.replace('MainTabs')`. Previously navigated even when session was null (unconfirmed user), landing user in app with no auth token.
+
+`ALTER TABLE auth.users` is **not permitted** via CLI migrations (GoTrue owns the table). Auth config changes must go through `supabase config push`.
+
+Signup flow: Name + Email + Password → "Welcome to ECHO!" toast → RadarScreen. No email step.
+
+**Item 2 — Profile screen cleanup**
+
+Removed all features that don't work yet (no Stripe = no Verification, Payout Methods, Earnings & Payouts, Cash Out, etc.). Rule: if a button doesn't do anything real, it doesn't exist.
+
+Display name fix: old accounts had `display_name = full_email` in DB (trigger fallback). ProfileScreen now strips `@domain` if the stored name contains `@`.
+
+**Item 3 — Custom job pricing (€1.00–€10.00)**
+
+`CreateRequestSheet` has a price input with live 80/20 breakdown. Minimum €1.00 enforced client-side. `priceCents` passed through to `create_request` RPC. Footer total updates live. Map markers show the real price.
+
+**Item 4 — Relative timestamps**
+
+`utils/timeAgo.js`: `timeAgo(iso)` → "5m ago", `dateAndTimeAgo(iso)` → "Today, 14:32 — 2h ago".
+Applied to: `JobOfferSheet` ("Posted Xm ago"), `ActivityScreen` (both request and job cards).
+
+**Item 5 — is_agent default true**
+
+Migration 00034: `profiles.is_agent DEFAULT true` + backfill all existing users. All testers are agents by default. Toggle in ProfileScreen to switch off.
+
+---
+
+### RESOLVED: Email Confirmation Disabled for Testers (March 13, 2026)
+
+**Root cause of original issue:** Supabase project had `enable_confirmations = true` (Dashboard default). Despite AuthScreen navigating to MainTabs after signup, `data.session` was `null` — user landed in app unauthenticated.
+
+**Fix:**
+- `supabase config push --project-ref dyywmbrxvypnpvuygqub` pushed `config.toml` with `enable_confirmations = false`
+- AuthScreen now checks `data?.session` before navigating — if null, shows "Check your email" (safety net, shouldn't happen)
+- Migration 00033 backfills `email_confirmed_at` for stuck-unconfirmed existing users
+
+**Key lesson:** `ALTER TABLE auth.users` is forbidden via CLI. GoTrue's `mailer_autoconfirm` config is not stored in `auth.config` (table doesn't exist in this Supabase version). The only way to change auth settings programmatically is `supabase config push` which calls the Management API using the linked project credentials.
 
 ---
 
@@ -1094,11 +1173,14 @@ const handleToggleSatellite = () => {
 - ✅ Bug Fix: Rejected jobs appearing at wrong coordinates — Realtime payload NaN guard + silentRefetch on reopen (March 12, 2026) — see §22 for details
 - ✅ Feature: ExpandedMapModal satellite toggle — dark map ↔ satellite, view preserved across toggle (March 12, 2026) — see §22 for details
 - ✅ Bug Fix: Jobs disappearing from map when pinned outside user's GPS radius — migration 00031 + RadarScreen fallback refetch fix (March 12, 2026) — see §22 for details
+- ✅ Production Readiness: Signup flow (no email confirmation), custom job pricing €1.00–€10.00, relative timestamps, ProfileScreen cleanup (March 13, 2026) — see §22 for details
+- ✅ Auth Fix: Email confirmation disabled via `supabase config push`; AuthScreen session guard; migration 00033 backfills stuck users (March 13, 2026)
+- ✅ DB: `is_agent DEFAULT true` + all existing users set to agent — migration 00034 (March 13, 2026)
+- ✅ ProfileScreen: Removed all placeholder UI (Verification, Payout Methods, Earnings & Payouts, Privacy & Safety, Support, Cash Out). Only real features remain. (March 13, 2026)
 
 ### In Progress
 - 🚧 Stripe Payment Integration
 - 🚧 Push Notifications
 
 ### Upcoming
-- 📋 Production Security Hardening
 - 📋 App Store Deployment
