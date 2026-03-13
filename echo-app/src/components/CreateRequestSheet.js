@@ -75,10 +75,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
             showToast('Minimum price is €1.00', 'error');
             return;
         }
-        if (priceEuros > 10.00) {
-            showToast('Maximum price is €10.00', 'error');
-            return;
-        }
+
         const priceCents = Math.round(priceEuros * 100);
 
         setIsSubmitting(true);
@@ -414,15 +411,15 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                         keyboardType="decimal-pad"
                         placeholder="1.00"
                         placeholderTextColor={COLORS.textSecondary}
-                        maxLength={5}
+                        maxLength={8}
                     />
                     <View style={styles.priceBreakdown}>
                         <Text style={styles.breakdownText}>
-                            Agent earns: €{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00)) * 0.8).toFixed(2)}
+                            Agent earns: €{(Math.max(1.00, parseFloat(priceInput) || 1.00) * 0.8).toFixed(2)}
                         </Text>
                         <Text style={styles.breakdownSep}>·</Text>
                         <Text style={styles.breakdownText}>
-                            Platform fee: €{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00)) * 0.2).toFixed(2)}
+                            Platform fee: €{(Math.max(1.00, parseFloat(priceInput) || 1.00) * 0.2).toFixed(2)}
                         </Text>
                     </View>
                 </ScrollView>
@@ -431,7 +428,7 @@ const CreateRequestSheetContent = ({ coordinates, userLocation, onClose, onConfi
                 <View style={styles.summaryRow}>
                     <View style={styles.totalWrapper}>
                         <Text style={styles.totalLabel}>Total:</Text>
-                        <Text style={styles.totalValue}>€{(Math.max(1.00, Math.min(10.00, parseFloat(priceInput) || 1.00))).toFixed(2)}</Text>
+                        <Text style={styles.totalValue}>€{(Math.max(1.00, parseFloat(priceInput) || 1.00)).toFixed(2)}</Text>
                     </View>
 
                     <View style={{ flex: 1 }} />
