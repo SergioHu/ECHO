@@ -1,8 +1,8 @@
 # ECHO — Master Project Context for Claude
 
 **Last Updated:** March 13, 2026
-**Project Status:** Phase 6 Complete + Production Readiness (Auth, Profile, Pricing, Timestamps) + Tester Onboarding Ready
-**Version:** 4.0
+**Project Status:** Phase 6 Complete + Production Readiness (Auth, Profile, Pricing, Timestamps) + Tester Onboarding Ready + Open Pricing
+**Version:** 4.1
 
 ---
 
@@ -29,8 +29,8 @@
 
 ### The Value Proposition
 ```
-Requester pays €1.00–€10.00 → Agent earns 80% → Platform keeps 20%
-Minimum: €1.00 total → Agent €0.80 → Platform €0.20
+Requester pays any amount (minimum €1.00) → Agent earns 80% → Platform keeps 20%
+The market sets the price.
 ```
 
 ### Key Differentiators
@@ -69,11 +69,11 @@ Photos are viewable for EXACTLY 3 minutes (180 seconds).
 
 ### Rule 4: Payment Split
 ```
-Total: €1.00–€10.00 (requester sets price, minimum €1.00)
+Total: any amount ≥ €1.00 (requester sets price freely — no maximum)
 ├── Agent: 80% of total
 └── Platform: 20% of total
 ```
-The price input is in `CreateRequestSheet`. Breakdown shown live ("Agent earns: €X.XX · Platform fee: €X.XX").
+Price input is in `CreateRequestSheet` (default €1.00, `maxLength=8`, supports up to €99999.99). Breakdown shown live ("Agent earns: €X.XX · Platform fee: €X.XX"). Only validation: minimum €1.00.
 
 ### Rule 5: Dispute Handling
 ```
@@ -1111,9 +1111,9 @@ Removed all features that don't work yet (no Stripe = no Verification, Payout Me
 
 Display name fix: old accounts had `display_name = full_email` in DB (trigger fallback). ProfileScreen now strips `@domain` if the stored name contains `@`.
 
-**Item 3 — Custom job pricing (€1.00–€10.00)**
+**Item 3 — Custom job pricing (minimum €1.00, no maximum)**
 
-`CreateRequestSheet` has a price input with live 80/20 breakdown. Minimum €1.00 enforced client-side. `priceCents` passed through to `create_request` RPC. Footer total updates live. Map markers show the real price.
+`CreateRequestSheet` has a price input with live 80/20 breakdown. Minimum €1.00 enforced client-side. No maximum — the market sets the price. `priceCents` passed through to `create_request` RPC. Footer total updates live. Map markers show the real price.
 
 **Item 4 — Relative timestamps**
 
@@ -1177,6 +1177,7 @@ Migration 00034: `profiles.is_agent DEFAULT true` + backfill all existing users.
 - ✅ Auth Fix: Email confirmation disabled via `supabase config push`; AuthScreen session guard; migration 00033 backfills stuck users (March 13, 2026)
 - ✅ DB: `is_agent DEFAULT true` + all existing users set to agent — migration 00034 (March 13, 2026)
 - ✅ ProfileScreen: Removed all placeholder UI (Verification, Payout Methods, Earnings & Payouts, Privacy & Safety, Support, Cash Out). Only real features remain. (March 13, 2026)
+- ✅ Pricing: Removed maximum price cap — market sets the price. Minimum €1.00 only. Input supports up to €99999.99. (March 13, 2026)
 
 ### In Progress
 - 🚧 Stripe Payment Integration
